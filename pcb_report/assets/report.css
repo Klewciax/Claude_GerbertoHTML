@@ -11,8 +11,10 @@
   --white: #ffffff;
 
   --marker-pending: #d4d9e0;
-  --marker-delivered: #ffd166;
-  --marker-mounted: #4caf7d;
+  --marker-delivered-partial: #ffe6a3;
+  --marker-delivered-full: #ffd166;
+  --marker-mounted-partial: #a9d8c1;
+  --marker-mounted-full: #4caf7d;
 }
 
 * { box-sizing: border-box; }
@@ -66,10 +68,11 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .tab-panel.is-active { display: flex; }
 
 /* Assembly */
-.assembly-tab { display: flex; width: 100%; min-height: 0; }
+.assembly-page { display: flex; flex-direction: column; width: 100%; min-height: 0; height: 100%; }
+.assembly-tab { display: flex; width: 100%; min-height: 0; flex: 1; }
 
 .assembly-tab__sidebar {
-  width: 380px; min-width: 320px; max-width: 420px;
+  width: 560px; min-width: 420px; max-width: 640px;
   display: flex; flex-direction: column;
   background: var(--white); border-right: 1px solid var(--gray-200);
   overflow-y: auto;
@@ -102,9 +105,15 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .upload-panel p { font-size: 0.72rem; color: var(--gray-500); margin: 0; }
 .upload-panel ul { margin: 8px 0 0; padding-left: 16px; font-size: 0.72rem; color: #7a4b00; }
 
-.component-list { flex: 1; overflow-y: auto; padding: 0 8px 16px; }
+.component-list__controls { padding: 0 16px 10px; }
+.component-list__group-toggle {
+  display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--gray-700);
+  cursor: pointer;
+}
+
+.component-list { flex: 1; overflow: auto; padding: 0 8px 16px; }
 .component-list--empty { padding: 24px 16px; color: var(--gray-500); font-size: 0.85rem; }
-.component-list table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.component-list table { width: 100%; min-width: 460px; border-collapse: collapse; font-size: 0.78rem; }
 .component-list thead th {
   position: sticky; top: 0; background: var(--gray-100); text-align: left;
   padding: 6px 8px; color: var(--gray-500); font-weight: 600; border-bottom: 1px solid var(--gray-200);
@@ -112,7 +121,7 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .component-list tbody tr { border-bottom: 1px solid var(--gray-100); cursor: pointer; }
 .component-list tbody tr:hover { background: var(--gray-100); }
 .component-list tbody tr.is-selected { background: var(--blue-pale); }
-.component-list td { padding: 8px; vertical-align: top; }
+.component-list td { padding: 6px; vertical-align: top; }
 .component-list__designators { font-weight: 700; color: var(--navy); }
 .component-list__mpn { font-size: 0.68rem; color: var(--gray-500); }
 .component-list__footprint { font-size: 0.7rem; color: var(--gray-500); }
@@ -121,6 +130,35 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
   margin-left: 4px; border: none; background: var(--blue); color: var(--white);
   border-radius: 4px; padding: 2px 6px; font-size: 0.65rem;
 }
+.component-list__flat-status { font-size: 0.68rem; color: var(--gray-500); margin-top: 2px; }
+
+.qty-cell { display: flex; flex-direction: column; gap: 3px; min-width: 72px; }
+.qty-cell__row { display: flex; align-items: center; gap: 3px; }
+.qty-cell input[type="number"] {
+  width: 40px; padding: 2px 4px; border: 1px solid var(--gray-300); border-radius: 4px;
+  font-size: 0.74rem;
+}
+.qty-cell__all {
+  border: 1px solid var(--gray-300); background: var(--gray-100); color: var(--gray-700);
+  border-radius: 4px; padding: 2px 4px; font-size: 0.62rem; white-space: nowrap;
+}
+.qty-cell__shortage { font-size: 0.65rem; color: #a15c00; }
+.qty-cell__ok { font-size: 0.65rem; color: #2e7d4f; }
+
+.shortage-panel {
+  border-top: 1px solid var(--gray-200); background: var(--white);
+  padding: 12px 20px; max-height: 200px; overflow-y: auto; flex-shrink: 0;
+}
+.shortage-panel h2 { margin: 0 0 8px; font-size: 0.9rem; color: var(--navy); }
+.shortage-panel__empty { margin: 0; font-size: 0.8rem; color: var(--gray-500); }
+.shortage-panel__list { display: flex; flex-direction: column; gap: 6px; }
+.shortage-panel__item {
+  display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline;
+  font-size: 0.78rem; padding: 6px 10px; background: #fff6e5; border: 1px solid #ffe1a8;
+  border-radius: 6px;
+}
+.shortage-panel__item strong { color: var(--navy); }
+.shortage-panel__item .shortage-panel__missing { color: #a15c00; font-weight: 600; }
 
 .pcb-viewer { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 .pcb-viewer__toolbar {

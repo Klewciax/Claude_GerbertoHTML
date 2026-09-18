@@ -92,6 +92,7 @@ def build_report_html(
 
   <main class="app__main">
     <section class="tab-panel is-active" data-tab="assembly">
+      <div class="assembly-page">
       <div class="assembly-tab">
         <aside class="assembly-tab__sidebar">
           <div class="upload-panel">
@@ -101,17 +102,22 @@ def build_report_html(
           </div>
 
           <div class="assembly-tab__summary">
-            <div>Elementy: <strong id="summaryTotal">0</strong></div>
-            <div>Dostarczone: <strong id="summaryDelivered">0/0</strong></div>
-            <div>Zamontowane: <strong id="summaryMounted">0/0</strong></div>
+            <div>Pozycje: <strong id="summaryTotal">0</strong></div>
+            <div>Dostarczono: <strong id="summaryDelivered">0/0</strong></div>
+            <div>Zamontowano: <strong id="summaryMounted">0/0</strong></div>
+          </div>
+
+          <div class="component-list__controls">
+            <label class="component-list__group-toggle">
+              <input type="checkbox" id="groupByPartToggle" checked />
+              Grupuj wg części (MPN)
+            </label>
           </div>
 
           <div class="component-list">
             <div class="component-list--empty" id="componentListEmpty" style="display:none;">Brak komponentów w BOM.</div>
             <table id="componentListTable">
-              <thead>
-                <tr><th>Oznaczenie</th><th>Wartość / Footprint</th><th title="Dostarczono">Dost.</th><th title="Zamontowano">Mont.</th></tr>
-              </thead>
+              <thead id="componentListHead"></thead>
               <tbody id="componentListBody"></tbody>
             </table>
           </div>
@@ -135,6 +141,13 @@ def build_report_html(
             </div>
           </div>
         </section>
+      </div>
+
+      <div class="shortage-panel" id="shortagePanel">
+        <h2>Braki (dostawa / montaż)</h2>
+        <p class="shortage-panel__empty" id="shortageEmpty">Brak braków — wszystko dostarczone i zamontowane w potrzebnej ilości.</p>
+        <div class="shortage-panel__list" id="shortageList"></div>
+      </div>
       </div>
     </section>
 

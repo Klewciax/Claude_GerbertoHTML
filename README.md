@@ -101,6 +101,32 @@ Efekt: plik `examples/minimal/report.html`, gotowy do otwarcia w przeglądarce.
 3. Domyślnie każdy umiejscowiony komponent ma widoczny znacznik **pinu 1** (żółta kropka przesunięta od
    środka zgodnie z rotacją komponentu).
 
+## Grupowanie i śledzenie ilości (Dostarczono / Zamontowano)
+
+Lista komponentów jest zawsze posortowana naturalnie po oznaczeniu (R1, R2, R3, R10, C1… zamiast
+alfabetycznie R1, R10, R2). Checkbox **„Grupuj wg części (MPN)”** w sidebarze Assembly przełącza
+widok:
+
+- **Zgrupowany (domyślny)** — wiersze łączone po MPN (a gdy go brak — po Wartości+Footprincie),
+  niezależnie od tego, jak były pogrupowane w oryginalnym pliku BOM. Każdy wiersz ma edytowalne pole
+  **„Potrzeba”** (domyślnie = liczba pozycji/refdesów, można nadpisać np. żeby doliczyć zapas),
+  oraz pola **„Dostarczono”** i **„Zamontowano”** — liczby wpisywane ręcznie lub przyciskiem
+  **„Wszystko”** (ustawia wartość = potrzeba). Brakująca ilość liczy się automatycznie i jest
+  widoczna zarówno przy wierszu, jak i w zbiorczym panelu **„Braki”** na dole strony Assembly.
+- **Płaski (bez grupowania)** — każdy refdes jako osobny wiersz, do szybkiego zlokalizowania
+  pojedynczej pozycji na płytce; pokazuje status ilościowy całej grupy, do której należy, ale nie
+  pozwala edytować liczb (edycja jest tylko w widoku zgrupowanym).
+
+Kliknięcie wiersza (lub znacznika na płytce) w widoku **zgrupowanym** podświetla na płytce
+**wszystkie** refdesy danej części naraz. W widoku **płaskim** podświetla się tylko wybrany,
+pojedynczy refdes.
+
+Ponieważ status jest liczony na poziomie części (a nie pojedynczego refdesu — narzędzie nie wie,
+*który konkretnie* egzemplarz został dostarczony/zamontowany), kolor znacznika na płytce odzwierciedla
+próg dla całej grupy: szary = nic, żółty = częściowo/w całości dostarczone, zielony = częściowo/w
+całości zamontowane (jaśniejszy odcień = częściowo, pełny = w całości; zamontowanie ma pierwszeństwo
+przed dostawą w kolorowaniu).
+
 ## Architektura i uzasadnienie wyboru narzędzi
 
 | Element | Wybór | Uzasadnienie |

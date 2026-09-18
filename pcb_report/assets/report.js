@@ -7,43 +7,117 @@
   var MIN_SCALE = 0.3;
   var MAX_SCALE = 40;
 
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function uid(prefix) {
+    return prefix + '_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+
+  // ---------------------------------------------------------------------
+  // Natural reference-designator sort (R1, R2, R10 instead of R1, R10, R2)
+  // ---------------------------------------------------------------------
+  function naturalRefParts(ref) {
+    var m = /^([A-Za-z_]*)(\d+)?(.*)$/.exec(ref || '');
+    if (!m) return ['', 0, ref || ''];
+    return [m[1].toUpperCase(), m[2] ? parseInt(m[2], 10) : 0, m[3] || ''];
+  }
+  function compareRefs(a, b) {
+    var pa = naturalRefParts(a), pb = naturalRefParts(b);
+    if (pa[0] !== pb[0]) return pa[0] < pb[0] ? -1 : 1;
+    if (pa[1] !== pb[1]) return pa[1] - pb[1];
+    return pa[2] < pb[2] ? -1 : pa[2] > pb[2] ? 1 : 0;
+  }
+
+  // ---------------------------------------------------------------------
+  // Part grouping: same MPN (or Value+Footprint when MPN is missing) are
+  // treated as one "part" for quantity tracking, regardless of how the
+  // BOM file itself grouped its rows.
+  // ---------------------------------------------------------------------
+  function buildPartKey(component) {
+    if (component.mpn && component.mpn.trim()) return 'mpn:' + component.mpn.trim().toLowerCase();
+    if (component.value && component.footprint) {
+      return 'vf:' + component.value.trim().toLowerCase() + '|' + component.footprint.trim().toLowerCase();
+    }
+    return 'row:' + component.id;
+  }
+
+  function buildPartGroups() {
+    var map = {};
+    DATA.components.forEach(function (c) {
+      var key = buildPartKey(c);
+      if (!map[key]) {
+        map[key] = { key: key, designators: [], value: c.value, footprint: c.footprint, mpn: c.mpn, description: c.description, bomNeeded: 0 };
+      }
+      var g = map[key];
+      g.designators = g.designators.concat(c.designators);
+      g.bomNeeded += c.quantity || c.designators.length;
+    });
+    var rows = Object.keys(map).map(function (k) { return map[k]; });
+    rows.forEach(function (r) { r.designators.sort(compareRefs); });
+    rows.sort(function (a, b) { return compareRefs(a.designators[0], b.designators[0]); });
+    return rows;
+  }
+
+  function buildFlatRows() {
+    var rows = [];
+    DATA.components.forEach(function (c) {
+      var key = buildPartKey(c);
+      c.designators.forEach(function (d) {
+        rows.push({ key: key, designator: d, value: c.value, footprint: c.footprint, mpn: c.mpn });
+      });
+    });
+    rows.sort(function (a, b) { return compareRefs(a.designator, b.designator); });
+    return rows;
+  }
+
+  var partGroups = buildPartGroups();
+  var partGroupsByKey = {};
+  partGroups.forEach(function (r) { partGroupsByKey[r.key] = r; });
+  var flatRows = buildFlatRows();
+
   // ---------------------------------------------------------------------
   // Persisted state (localStorage) merged on top of the generated data
   // ---------------------------------------------------------------------
+  function defaultPersisted() {
+    return { manualPlacements: {}, reworks: [], samples: [], stock: {}, groupByPart: true };
+  }
+
   function loadPersisted() {
     try {
       var raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { componentOverrides: {}, manualPlacements: {}, reworks: [], samples: [] };
+      if (!raw) return defaultPersisted();
       var parsed = JSON.parse(raw);
       return {
-        componentOverrides: parsed.componentOverrides || {},
         manualPlacements: parsed.manualPlacements || {},
         reworks: parsed.reworks || [],
         samples: parsed.samples || [],
+        stock: parsed.stock || {},
+        groupByPart: parsed.groupByPart != null ? parsed.groupByPart : true,
       };
     } catch (e) {
       console.warn('Nie udalo sie odczytac zapisanego stanu:', e);
-      return { componentOverrides: {}, manualPlacements: {}, reworks: [], samples: [] };
+      return defaultPersisted();
     }
   }
 
   var persisted = loadPersisted();
 
   function persist() {
-    var componentOverrides = {};
-    state.components.forEach(function (c) {
-      componentOverrides[c.id] = { delivered: c.delivered, mounted: c.mounted };
-    });
     var manualPlacements = {};
     Object.keys(state.placements).forEach(function (designator) {
       var p = state.placements[designator];
       if (p.manual) manualPlacements[designator] = p;
     });
     var payload = {
-      componentOverrides: componentOverrides,
       manualPlacements: manualPlacements,
       reworks: state.reworks,
       samples: state.samples,
+      stock: state.stock,
+      groupByPart: state.groupByPart,
     };
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -52,25 +126,48 @@
     }
   }
 
-  function uid(prefix) {
-    return prefix + '_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-  }
-
   // ---------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------
   var state = {
-    components: DATA.components.map(function (c) {
-      var override = persisted.componentOverrides[c.id];
-      return Object.assign({}, c, override || {});
-    }),
     placements: Object.assign({}, DATA.placements, persisted.manualPlacements),
-    selectedComponentId: null,
+    selection: { key: null, designator: null },
     mappingDesignator: null,
     activeSide: 'top',
     reworks: persisted.reworks,
     samples: persisted.samples,
+    stock: persisted.stock,
+    groupByPart: persisted.groupByPart,
   };
+
+  function getStock(key) {
+    if (!state.stock[key]) state.stock[key] = { neededOverride: null, delivered: 0, mounted: 0 };
+    return state.stock[key];
+  }
+
+  function neededFor(key) {
+    var stock = getStock(key);
+    if (stock.neededOverride != null) return stock.neededOverride;
+    var group = partGroupsByKey[key];
+    return group ? group.bomNeeded : 1;
+  }
+
+  function tierFor(value, needed) {
+    if (needed <= 0 || value <= 0) return 'none';
+    return value >= needed ? 'full' : 'partial';
+  }
+
+  function statusFillForKey(key) {
+    var needed = neededFor(key);
+    var stock = getStock(key);
+    var mountedTier = tierFor(stock.mounted, needed);
+    if (mountedTier === 'full') return 'var(--marker-mounted-full)';
+    if (mountedTier === 'partial') return 'var(--marker-mounted-partial)';
+    var deliveredTier = tierFor(stock.delivered, needed);
+    if (deliveredTier === 'full') return 'var(--marker-delivered-full)';
+    if (deliveredTier === 'partial') return 'var(--marker-delivered-partial)';
+    return 'var(--marker-pending)';
+  }
 
   // ---------------------------------------------------------------------
   // Tabs
@@ -102,47 +199,93 @@
   // Component list
   // ---------------------------------------------------------------------
   var listBody = document.getElementById('componentListBody');
+  var listHead = document.getElementById('componentListHead');
   var listEmpty = document.getElementById('componentListEmpty');
   var listTable = document.getElementById('componentListTable');
+  var groupToggle = document.getElementById('groupByPartToggle');
 
-  function escapeHtml(str) {
-    return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
+  function qtyCellHtml(key, kind, value, needed) {
+    var shortage = Math.max(0, needed - value);
+    var statusHtml = shortage > 0
+      ? '<span class="qty-cell__shortage">brakuje ' + shortage + '</span>'
+      : '<span class="qty-cell__ok">OK</span>';
+    return (
+      '<div class="qty-cell">' +
+        '<div class="qty-cell__row">' +
+          '<input type="number" min="0" step="1" value="' + value + '" data-qty="' + kind + '" data-key="' + escapeHtml(key) + '" />' +
+          '<button type="button" class="qty-cell__all" data-qty-all="' + kind + '" data-key="' + escapeHtml(key) + '">Wszystko</button>' +
+        '</div>' +
+        statusHtml +
+      '</div>'
+    );
+  }
+
+  function neededCellHtml(key, needed) {
+    return '<input type="number" min="0" step="1" value="' + needed + '" data-qty="needed" data-key="' + escapeHtml(key) + '" style="width:60px" />';
+  }
+
+  function unplacedHtmlFor(designators) {
+    var unplaced = designators.filter(function (d) { return !state.placements[d]; });
+    if (unplaced.length === 0) return '';
+    var isMappingThis = state.mappingDesignator === unplaced[0];
+    return (
+      '<div class="component-list__unplaced">Brak pozycji: ' + escapeHtml(unplaced.join(', ')) +
+      ' <button type="button" data-action="map" data-designator="' + escapeHtml(unplaced[0]) + '">' +
+      (isMappingThis ? 'Anuluj' : 'Ustaw na płytce') + '</button></div>'
+    );
+  }
+
+  function groupedRowHtml(row) {
+    var needed = neededFor(row.key);
+    var stock = getStock(row.key);
+    var selected = state.selection.key === row.key && !state.selection.designator;
+    return (
+      '<tr class="' + (selected ? 'is-selected' : '') + '" data-row-key="' + escapeHtml(row.key) + '">' +
+      '<td><div class="component-list__designators">' + escapeHtml(row.designators.join(', ')) + '</div>' +
+      (row.mpn ? '<div class="component-list__mpn">' + escapeHtml(row.mpn) + '</div>' : '') +
+      unplacedHtmlFor(row.designators) +
+      '</td>' +
+      '<td><div>' + escapeHtml(row.value || '—') + '</div><div class="component-list__footprint">' + escapeHtml(row.footprint || '') + '</div></td>' +
+      '<td data-action="stop">' + neededCellHtml(row.key, needed) + '</td>' +
+      '<td data-action="stop">' + qtyCellHtml(row.key, 'delivered', stock.delivered, needed) + '</td>' +
+      '<td data-action="stop">' + qtyCellHtml(row.key, 'mounted', stock.mounted, needed) + '</td>' +
+      '</tr>'
+    );
+  }
+
+  function flatRowHtml(entry) {
+    var needed = neededFor(entry.key);
+    var stock = getStock(entry.key);
+    var selected = state.selection.designator === entry.designator;
+    return (
+      '<tr class="' + (selected ? 'is-selected' : '') + '" data-row-key="' + escapeHtml(entry.key) + '" data-designator="' + escapeHtml(entry.designator) + '">' +
+      '<td><div class="component-list__designators">' + escapeHtml(entry.designator) + '</div>' +
+      (entry.mpn ? '<div class="component-list__mpn">' + escapeHtml(entry.mpn) + '</div>' : '') +
+      unplacedHtmlFor([entry.designator]) +
+      '</td>' +
+      '<td><div>' + escapeHtml(entry.value || '—') + '</div><div class="component-list__footprint">' + escapeHtml(entry.footprint || '') + '</div></td>' +
+      '<td><div class="component-list__flat-status">Dostarczono (część): ' + stock.delivered + '/' + needed + '</div>' +
+      '<div class="component-list__flat-status">Zamontowano (część): ' + stock.mounted + '/' + needed + '</div></td>' +
+      '</tr>'
+    );
+  }
+
+  function updateListHead() {
+    listHead.innerHTML = state.groupByPart
+      ? '<tr><th>Oznaczenia</th><th>Wartość / Footprint</th><th>Potrzeba</th><th>Dostarczono</th><th>Zamontowano</th></tr>'
+      : '<tr><th>Oznaczenie</th><th>Wartość / Footprint</th><th>Status części</th></tr>';
   }
 
   function renderComponentList() {
-    if (state.components.length === 0) {
+    var rows = state.groupByPart ? partGroups : flatRows;
+    if (rows.length === 0) {
       listTable.style.display = 'none';
       listEmpty.style.display = 'block';
       return;
     }
     listTable.style.display = '';
     listEmpty.style.display = 'none';
-
-    listBody.innerHTML = state.components.map(function (c) {
-      var unplaced = c.designators.filter(function (d) { return !state.placements[d]; });
-      var selected = c.id === state.selectedComponentId;
-      var unplacedHtml = '';
-      if (unplaced.length > 0) {
-        var isMappingThis = state.mappingDesignator === unplaced[0];
-        unplacedHtml =
-          '<div class="component-list__unplaced">Brak pozycji: ' + escapeHtml(unplaced.join(', ')) +
-          ' <button type="button" data-action="map" data-designator="' + escapeHtml(unplaced[0]) + '">' +
-          (isMappingThis ? 'Anuluj' : 'Ustaw na płytce') + '</button></div>';
-      }
-      return (
-        '<tr class="' + (selected ? 'is-selected' : '') + '" data-component-id="' + c.id + '">' +
-        '<td><div class="component-list__designators">' + escapeHtml(c.designators.join(', ')) + '</div>' +
-        (c.mpn ? '<div class="component-list__mpn">' + escapeHtml(c.mpn) + '</div>' : '') +
-        unplacedHtml +
-        '</td>' +
-        '<td><div>' + escapeHtml(c.value || '—') + '</div><div class="component-list__footprint">' + escapeHtml(c.footprint || '') + '</div></td>' +
-        '<td data-action="stop"><input type="checkbox" data-action="delivered" ' + (c.delivered ? 'checked' : '') + '/></td>' +
-        '<td data-action="stop"><input type="checkbox" data-action="mounted" ' + (c.mounted ? 'checked' : '') + '/></td>' +
-        '</tr>'
-      );
-    }).join('');
+    listBody.innerHTML = rows.map(state.groupByPart ? groupedRowHtml : flatRowHtml).join('');
   }
 
   listBody.addEventListener('click', function (e) {
@@ -155,62 +298,144 @@
       updateMappingHint();
       return;
     }
-    if (e.target.closest('[data-action="stop"]')) return; // checkbox cell, handled by change listener
-    var row = e.target.closest('tr[data-component-id]');
+    var allBtn = e.target.closest('[data-qty-all]');
+    if (allBtn) {
+      e.stopPropagation();
+      var key = allBtn.dataset.key;
+      getStock(key)[allBtn.dataset.qtyAll] = neededFor(key);
+      afterStockChange();
+      return;
+    }
+    if (e.target.closest('[data-action="stop"]')) return;
+    var row = e.target.closest('tr[data-row-key]');
     if (!row) return;
-    var id = row.dataset.componentId;
-    selectComponent(state.selectedComponentId === id ? null : id);
+    if (state.groupByPart) {
+      selectGroup(row.dataset.rowKey);
+    } else {
+      selectSingle(row.dataset.rowKey, row.dataset.designator);
+    }
   });
 
   listBody.addEventListener('change', function (e) {
-    var row = e.target.closest('tr[data-component-id]');
-    if (!row) return;
-    var component = state.components.find(function (c) { return c.id === row.dataset.componentId; });
-    if (!component) return;
-    if (e.target.dataset.action === 'delivered') component.delivered = e.target.checked;
-    if (e.target.dataset.action === 'mounted') component.mounted = e.target.checked;
-    updateMarkerStatus(component);
-    updateSummary();
+    var input = e.target.closest('input[data-qty]');
+    if (!input) return;
+    var key = input.dataset.key;
+    var kind = input.dataset.qty;
+    var value = Math.max(0, parseInt(input.value, 10) || 0);
+    if (kind === 'needed') {
+      getStock(key).neededOverride = value;
+    } else {
+      getStock(key)[kind] = value;
+    }
+    afterStockChange();
+  });
+
+  groupToggle.addEventListener('change', function (e) {
+    state.groupByPart = e.target.checked;
+    state.selection = { key: null, designator: null };
+    updateListHead();
+    renderComponentList();
+    updateMarkerSelectionClasses();
     persist();
   });
 
-  function selectComponent(id) {
-    state.selectedComponentId = id;
+  function selectGroup(key) {
+    if (state.selection.key === key && !state.selection.designator) {
+      state.selection = { key: null, designator: null };
+    } else {
+      state.selection = { key: key, designator: null };
+    }
+    afterSelectionChange();
+  }
+
+  function selectSingle(key, designator) {
+    if (state.selection.designator === designator) {
+      state.selection = { key: null, designator: null };
+    } else {
+      state.selection = { key: key, designator: designator };
+    }
+    afterSelectionChange();
+  }
+
+  function afterSelectionChange() {
     renderComponentList();
-    document.querySelectorAll('.marker').forEach(function (m) {
-      m.classList.toggle('is-selected', m.dataset.componentId === id);
-    });
+    updateMarkerSelectionClasses();
+  }
+
+  function afterStockChange() {
+    renderComponentList();
+    refreshAllMarkerFills();
+    updateSummary();
+    renderShortagePanel();
+    persist();
   }
 
   function updateSummary() {
-    var total = 0, delivered = 0, mounted = 0;
-    state.components.forEach(function (c) {
-      total += c.designators.length;
-      if (c.delivered) delivered += c.designators.length;
-      if (c.mounted) mounted += c.designators.length;
+    var totalNeeded = 0, totalDelivered = 0, totalMounted = 0;
+    partGroups.forEach(function (row) {
+      var needed = neededFor(row.key);
+      var stock = getStock(row.key);
+      totalNeeded += needed;
+      totalDelivered += Math.min(stock.delivered, needed);
+      totalMounted += Math.min(stock.mounted, needed);
     });
-    document.getElementById('summaryTotal').textContent = total;
-    document.getElementById('summaryDelivered').textContent = delivered + '/' + total;
-    document.getElementById('summaryMounted').textContent = mounted + '/' + total;
+    document.getElementById('summaryTotal').textContent = totalNeeded;
+    document.getElementById('summaryDelivered').textContent = totalDelivered + '/' + totalNeeded;
+    document.getElementById('summaryMounted').textContent = totalMounted + '/' + totalNeeded;
   }
 
-  function statusFill(component) {
-    if (component.mounted) return 'var(--marker-mounted)';
-    if (component.delivered) return 'var(--marker-delivered)';
-    return 'var(--marker-pending)';
+  function renderShortagePanel() {
+    var listEl = document.getElementById('shortageList');
+    var emptyEl = document.getElementById('shortageEmpty');
+    var items = [];
+    partGroups.forEach(function (row) {
+      var needed = neededFor(row.key);
+      var stock = getStock(row.key);
+      var missingDelivery = Math.max(0, needed - stock.delivered);
+      var missingMount = Math.max(0, needed - stock.mounted);
+      if (missingDelivery > 0 || missingMount > 0) {
+        items.push({ row: row, needed: needed, missingDelivery: missingDelivery, missingMount: missingMount });
+      }
+    });
+    if (items.length === 0) {
+      emptyEl.style.display = 'block';
+      listEl.innerHTML = '';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    listEl.innerHTML = items.map(function (it) {
+      var badges = '';
+      if (it.missingDelivery > 0) badges += '<span class="shortage-panel__missing">brakuje dostawy: ' + it.missingDelivery + '</span>';
+      if (it.missingMount > 0) badges += '<span class="shortage-panel__missing">brakuje montażu: ' + it.missingMount + '</span>';
+      return (
+        '<div class="shortage-panel__item">' +
+        '<strong>' + escapeHtml(it.row.designators.join(', ')) + '</strong>' +
+        '<span>' + escapeHtml(it.row.value || '—') + (it.row.footprint ? ' / ' + escapeHtml(it.row.footprint) : '') + '</span>' +
+        (it.row.mpn ? '<span>MPN: ' + escapeHtml(it.row.mpn) + '</span>' : '') +
+        '<span>potrzeba: ' + it.needed + '</span>' +
+        badges +
+        '</div>'
+      );
+    }).join('');
   }
 
-  function updateMarkerStatus(component) {
-    component.designators.forEach(function (designator) {
-      var marker = document.querySelector('.marker[data-designator="' + cssEscape(designator) + '"]');
-      if (!marker) return;
-      var base = marker.querySelector('.marker__base');
-      if (base) base.setAttribute('fill', statusFill(component));
+  function refreshAllMarkerFills() {
+    document.querySelectorAll('.marker').forEach(function (m) {
+      var base = m.querySelector('.marker__base');
+      if (base) base.setAttribute('fill', statusFillForKey(m.dataset.partKey));
     });
   }
 
-  function cssEscape(value) {
-    return window.CSS && CSS.escape ? CSS.escape(value) : value.replace(/["\\]/g, '\\$&');
+  function markerMatchesSelection(partKey, designator) {
+    if (!state.selection.key && !state.selection.designator) return false;
+    if (state.selection.designator) return designator === state.selection.designator;
+    return partKey === state.selection.key;
+  }
+
+  function updateMarkerSelectionClasses() {
+    document.querySelectorAll('.marker').forEach(function (m) {
+      m.classList.toggle('is-selected', markerMatchesSelection(m.dataset.partKey, m.dataset.designator));
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -247,55 +472,57 @@
     return DATA.viewBox;
   }
 
-  function buildMarkersSvg(vb) {
+  function buildMarkersSvg() {
     var svgNs = 'http://www.w3.org/2000/svg';
     var g = document.createElementNS(svgNs, 'g');
     g.setAttribute('id', 'markersLayer');
 
-    state.components.forEach(function (component) {
-      component.designators.forEach(function (designator) {
-        var placement = state.placements[designator];
-        if (!placement) return;
-        var x = placement.x;
-        var y = -placement.y;
-        var rad = (placement.rotation * Math.PI) / 180;
-        var pinOffset = 1.6;
-        var pinX = x + Math.sin(rad) * pinOffset;
-        var pinY = y - Math.cos(rad) * pinOffset;
+    flatRows.forEach(function (entry) {
+      var placement = state.placements[entry.designator];
+      if (!placement) return;
+      var x = placement.x;
+      var y = -placement.y;
+      var rad = (placement.rotation * Math.PI) / 180;
+      var pinOffset = 1.6;
+      var pinX = x + Math.sin(rad) * pinOffset;
+      var pinY = y - Math.cos(rad) * pinOffset;
 
-        var marker = document.createElementNS(svgNs, 'g');
-        marker.setAttribute('class', 'marker');
-        marker.dataset.componentId = component.id;
-        marker.dataset.designator = designator;
+      var marker = document.createElementNS(svgNs, 'g');
+      marker.setAttribute('class', 'marker');
+      marker.dataset.partKey = entry.key;
+      marker.dataset.designator = entry.designator;
 
-        var halo = document.createElementNS(svgNs, 'circle');
-        halo.setAttribute('class', 'marker__halo');
-        halo.setAttribute('cx', x); halo.setAttribute('cy', y); halo.setAttribute('r', 2.2);
-        halo.setAttribute('fill', 'none'); halo.setAttribute('stroke', '#ff6a00'); halo.setAttribute('stroke-width', 0.35);
+      var halo = document.createElementNS(svgNs, 'circle');
+      halo.setAttribute('class', 'marker__halo');
+      halo.setAttribute('cx', x); halo.setAttribute('cy', y); halo.setAttribute('r', 2.2);
+      halo.setAttribute('fill', 'none'); halo.setAttribute('stroke', '#ff6a00'); halo.setAttribute('stroke-width', 0.35);
 
-        var base = document.createElementNS(svgNs, 'circle');
-        base.setAttribute('class', 'marker__base');
-        base.setAttribute('cx', x); base.setAttribute('cy', y); base.setAttribute('r', 0.95);
-        base.setAttribute('fill', statusFill(component));
+      var base = document.createElementNS(svgNs, 'circle');
+      base.setAttribute('class', 'marker__base');
+      base.setAttribute('cx', x); base.setAttribute('cy', y); base.setAttribute('r', 0.95);
+      base.setAttribute('fill', statusFillForKey(entry.key));
 
-        var pin1 = document.createElementNS(svgNs, 'circle');
-        pin1.setAttribute('class', 'marker__pin1');
-        pin1.setAttribute('cx', pinX); pin1.setAttribute('cy', pinY); pin1.setAttribute('r', 0.32);
+      var pin1 = document.createElementNS(svgNs, 'circle');
+      pin1.setAttribute('class', 'marker__pin1');
+      pin1.setAttribute('cx', pinX); pin1.setAttribute('cy', pinY); pin1.setAttribute('r', 0.32);
 
-        var label = document.createElementNS(svgNs, 'text');
-        label.setAttribute('x', x + 1.6); label.setAttribute('y', y - 1.6);
-        label.textContent = designator;
+      var label = document.createElementNS(svgNs, 'text');
+      label.setAttribute('x', x + 1.6); label.setAttribute('y', y - 1.6);
+      label.textContent = entry.designator;
 
-        marker.appendChild(halo);
-        marker.appendChild(base);
-        marker.appendChild(pin1);
-        marker.appendChild(label);
-        marker.addEventListener('click', function (evt) {
-          evt.stopPropagation();
-          selectComponent(state.selectedComponentId === component.id ? null : component.id);
-        });
-        g.appendChild(marker);
+      marker.appendChild(halo);
+      marker.appendChild(base);
+      marker.appendChild(pin1);
+      marker.appendChild(label);
+      marker.addEventListener('click', function (evt) {
+        evt.stopPropagation();
+        if (state.groupByPart) {
+          selectGroup(entry.key);
+        } else {
+          selectSingle(entry.key, entry.designator);
+        }
       });
+      g.appendChild(marker);
     });
 
     return g;
@@ -330,24 +557,22 @@
     gerberGroup.innerHTML = svgInner;
     svg.appendChild(gerberGroup);
 
-    svg.appendChild(buildMarkersSvg(vb));
+    svg.appendChild(buildMarkersSvg());
 
     bg.addEventListener('click', function () {
       if (state.mappingDesignator) return;
-      selectComponent(null);
+      state.selection = { key: null, designator: null };
+      afterSelectionChange();
     });
 
     stage.appendChild(svg);
     currentSvg = svg;
-    document.querySelectorAll('.marker').forEach(function (m) {
-      m.classList.toggle('is-selected', m.dataset.componentId === state.selectedComponentId);
-    });
+    updateMarkerSelectionClasses();
     fitToView();
   }
 
   function updateMappingHint() {
-    var viewportEl = viewport;
-    viewportEl.classList.toggle('is-mapping', !!state.mappingDesignator);
+    viewport.classList.toggle('is-mapping', !!state.mappingDesignator);
     if (state.mappingDesignator) {
       mappingHint.style.display = 'inline';
       mappingHint.textContent = 'Kliknij na płytce, aby ustawić pozycję ' + state.mappingDesignator;
@@ -549,10 +774,13 @@
   // ---------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------
+  groupToggle.checked = state.groupByPart;
+  updateListHead();
   renderComponentList();
   updateSummary();
   renderBoard();
   updateMappingHint();
+  renderShortagePanel();
   renderReworkPool();
   renderSamples();
 })();
