@@ -1,3 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Node (build_tools only, dev-time bundle rebuild)
+node_modules
+build_tools/node_modules
+build_tools/package-lock.json
+dist
+dist-ssr
+*.local
+
+# Generated reports (output of the CLI, not source)
+/out/
+*.report.html
+
 # Logs
 logs
 *.log
@@ -6,11 +27,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
 
 # Editor directories and files
 .vscode/*

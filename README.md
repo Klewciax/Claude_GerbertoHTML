@@ -1,88 +1,138 @@
-# GerbertoHTML — narzędzie do zarządzania montażem PCB
+# GerbertoHTML — generator raportów Assembly / Traceability dla PCB
 
-Aplikacja webowa (SPA) do zarządzania montażem płytek PCB (EMS/PCB assembly), z dwiema zakładkami:
+Narzędzie CLI w Pythonie: wskazujesz pliki **Gerber**, **BOM** (CSV/XML) i opcjonalnie **pick-and-place**
+(CSV), a na wyjściu dostajesz **jeden samodzielny plik HTML** z dwiema zakładkami:
 
-- **Assembly** — lista komponentów z BOM sprzężona dwustronnie z wizualizacją płytki (zoom/pan), statusy dostawy i montażu.
-- **Traceability** — numery sampli, wspólny stos przeróbek (rework) i notatki per sampel.
+- **Assembly** — lista komponentów z BOM sprzężona dwustronnie z wizualizacją płytki (zoom/pan),
+  checkboxy Dostarczono/Zamontowano, ręczne pozycjonowanie komponentów bez danych z pick-and-place.
+- **Traceability** — numery sampli, wspólny stos przeróbek (rework), notatki per sampel.
 
-## Stack technologiczny i uzasadnienie wyboru
+Wygenerowany plik `report.html` można otworzyć bezpośrednio w przeglądarce (dwuklik, bez serwera),
+wysłać mailem, dołączyć do dokumentacji partii produkcyjnej albo zarchiwizować. Jest w pełni
+interaktywny — zmiany (checkboxy, sample, przeróbki, ręczne pozycje) zapisują się lokalnie w
+przeglądarce (`localStorage`), więc kolejne otwarcie tego samego pliku pamięta poprzedni stan.
 
-| Obszar | Wybór | Uzasadnienie |
+## Szybki start
+
+```bash
+python3 -m pcb_report \
+  --gerber board-top-copper.gbr board-bottom-copper.gbr board-outline.gbr board-silkscreen.gbr \
+  --bom bom.csv \
+  --pnp placement.csv \
+  -o report.html
+```
+
+Następnie otwórz `report.html` w przeglądarce.
+
+**Wymagania:**
+- Python 3.9+ (używa wyłącznie biblioteki standardowej — brak `pip install`).
+- **Node.js ≥ 18** dostępny w `PATH` — wymagany tylko do renderowania plików Gerber (patrz niżej,
+  sekcja "Dlaczego Node.js"). Reszta narzędzia (parsowanie BOM/pick-and-place, budowa HTML) jest
+  czystym Pythonem.
+
+Repozytorium zawiera minimalny zestaw testowy w `examples/minimal/` — możesz od razu wygenerować
+przykładowy raport:
+
+```bash
+python3 -m pcb_report \
+  --gerber examples/minimal/outline.gbr examples/minimal/copper.gbr \
+  --bom examples/minimal/bom.csv \
+  --pnp examples/minimal/pnp.csv \
+  -o examples/minimal/report.html
+```
+
+## Argumenty CLI
+
+| Argument | Wymagany | Opis |
 | --- | --- | --- |
-| Framework UI | **React 19 + TypeScript**, bundler **Vite** | szybki dev-loop (HMR), silne typowanie dla danych BOM/placement, standard w narzędziach inżynierskich |
-| Stan aplikacji | **Zustand** (+ `persist` middleware, localStorage) | prosty, bez boilerplate'u Reduxa; `persist` daje "za darmo" zachowanie stanu BOM/statusów/reworków między sesjami — istotne przy pracy zmianowej na hali produkcyjnej |
-| Renderowanie Gerber → SVG | **`@tracespace/core`** (część projektu [tracespace](https://github.com/tracespace/tracespace)) | jedyna dojrzała, czysto-JS biblioteka parsująca RS-274X (Gerber X2) i Excellon (wiertła) i renderująca realny obraz płytki (miedź, maska, opis, otwory) do SVG **bezpośrednio w przeglądarce**, bez backendu/serwera renderującego. Alternatywy (`pcb-stackup`, node-gerber) są starsze/mniej utrzymywane; pisanie własnego parsera RS-274X od zera byłoby nieuzasadnionym nakładem pracy |
-| Canvas/wektory + interakcja | **Konva / react-konva** | wyrenderowane SVG płytki jest ładowane jako bitmapa tła (`Konva.Image`), a nad nim rysowane są w tym samym układzie współrzędnych (mm) interaktywne markery komponentów — okręgi, podświetlenia, etykiety. Konva daje wydajny hit-testing, natywne zoom/pan (transformacje `Stage`/`Group`) i płynne przerysowywanie przy zaznaczaniu, co przy podejściu "czyste SVG + React" byłoby wolniejsze przy większej liczbie elementów |
-| Parsowanie BOM (CSV) | **PapaParse** | de facto standard do CSV w przeglądarce, dobra obsługa cudzysłowów/separatorów, wykrywanie nagłówków |
-| Parsowanie BOM (XML) | **fast-xml-parser** | lekki, szybki parser XML→JS działający w przeglądarce; format BOM w XML nie jest ustandaryzowany między CAD-ami (Altium/KiCad/OrCAD eksportują różnie), więc parser BOM-a XML działa heurystycznie (patrz niżej) |
-| Identyfikatory | **uuid** | stabilne id rekordów niezależne od kolejności w tablicy |
+| `--gerber PLIK [PLIK ...]` | tak | Pliki Gerber/Excellon (RS-274X) — miedź, maska, opis, obrys, wiertła. |
+| `--bom PLIK` | tak | Plik BOM w formacie `.csv` lub `.xml`. |
+| `--pnp PLIK` | nie | Plik pick-and-place `.csv` (pozycje X/Y/rotacja/strona). Bez niego wszystkie komponenty trzeba ustawić ręcznie w raporcie. |
+| `--unit {mm,inch}` | nie | Jednostki współrzędnych w pliku pick-and-place (domyślnie `mm`). |
+| `-o, --output PLIK` | nie | Ścieżka wyjściowa (domyślnie `report.html`). |
+| `--report-id ID` | nie | Wymuszony klucz `localStorage` (domyślnie wyliczany automatycznie z nazw plików Gerber + zestawu oznaczeń — pozwala to na ponowne wygenerowanie raportu dla tego samego projektu bez utraty zaznaczonych checkboxów). |
 
-Cała aplikacja jest w 100% front-endowa (statyczny SPA) — nie wymaga backendu do renderowania Gerberów, co upraszcza wdrożenie (może być hostowana jako zwykłe pliki statyczne).
+## Format plików wejściowych
+
+- **BOM (CSV)** — nagłówki (rozpoznawane bez rozróżniania wielkości liter): `Designator`/`Reference`/`RefDes`,
+  `Value`, `Footprint`/`Package`, `Description`, `Manufacturer`, `MPN`, `Qty`. Pole z oznaczeniami może
+  zawierać kilka wartości naraz, np. `"R1, R2, R5"` — typowe dla BOM-ów grupujących identyczne części
+  w jednym wierszu. Kliknięcie takiego wiersza w raporcie podświetla **wszystkie** wymienione oznaczenia
+  jednocześnie na wizualizacji płytki.
+- **BOM (XML)** — parser jest heurystyczny: szuka węzłów zawierających pole typu Designator/Reference,
+  ponieważ format XML BOM nie jest ustandaryzowany między systemami CAD. Dla większej niezawodności
+  zalecany jest eksport do CSV.
+- **Pick-and-place (CSV)** — nagłówki: `Designator`, `Mid X`/`X`, `Mid Y`/`Y`, `Rotation`, `Layer`/`Side`
+  (`Top`/`Bottom`). Standardowy eksport z KiCad/Altium/Eagle.
+- **Gerber** — dowolny zestaw plików RS-274X (miedź, maska, opis, obrys) i opcjonalnie Excellon
+  (wiertła); typ warstwy jest rozpoznawany automatycznie po zawartości/nazwie pliku.
 
 ## Mapowanie komponentów BOM → wizualizacja PCB
 
-Wymaganie: skojarzenie wierszy BOM z elementami na wizualizacji na podstawie oznaczeń (R1, C2, U3…).
+1. **Z danymi pick-and-place** — każdy `designator` z BOM jest automatycznie mapowany na pozycję
+   (x, y, rotacja, strona) z pliku PnP.
+2. **Bez danych pozycyjnych (lub brak konkretnego oznaczenia w PnP)** — w wygenerowanym raporcie
+   komponent jest oznaczony jako *"Brak pozycji"* z przyciskiem **„Ustaw na płytce”**: klikasz przycisk,
+   a następnie klikasz na wizualizacji, aby ręcznie przypisać współrzędne. To działa w 100% w
+   przeglądarce, po wygenerowaniu pliku — nie trzeba nic przeliczać ani ponownie uruchamiać narzędzia.
+3. Domyślnie każdy umiejscowiony komponent ma widoczny znacznik **pinu 1** (żółta kropka przesunięta od
+   środka zgodnie z rotacją komponentu).
 
-1. **Dane pozycyjne (zalecane)** — jeśli dostępny jest plik **pick-and-place** (CSV z kolumnami typu `Designator, Mid X, Mid Y, Rotation, Layer`, eksportowany z KiCad/Altium/Eagle), aplikacja mapuje każdy `designator` na dokładną pozycję (x, y, rotacja, strona) na płytce. To jest ścieżka w pełni automatyczna.
-2. **Brak danych pozycyjnych** — jeśli PnP nie jest dostępny (lub nie zawiera danego oznaczenia), komponent jest oznaczony na liście jako *"Brak pozycji"* z przyciskiem **„Ustaw na płytce”**: użytkownik klika przycisk, a następnie klika bezpośrednio na wizualizacji PCB, aby ręcznie przypisać współrzędne temu oznaczeniu. To częściowo-automatyczne/manualne rozwiązanie pozwala pracować nawet bez pliku PnP.
-3. **Wiele oznaczeń w jednym wierszu BOM** — typowe eksporty BOM grupują identyczne części w jednym wierszu (`R1, R2, R5` jako jedna linia „rezystor 10k, 0402”). Parser BOM obsługuje to natywnie (dzieli pole „Designator/Reference” po przecinkach/spacjach), a kliknięcie takiego wiersza na liście podświetla **wszystkie** wystąpienia tych oznaczeń jednocześnie na wizualizacji.
+## Architektura i uzasadnienie wyboru narzędzi
 
-Domyślnie każdy komponent, który ma przypisaną pozycję, ma wizualnie oznaczony **pin 1** (mały żółty znacznik przesunięty od środka komponentu zgodnie z jego rotacją) — zgodnie z wymaganiem.
+| Element | Wybór | Uzasadnienie |
+| --- | --- | --- |
+| Interfejs / logika | **Python 3, tylko biblioteka standardowa** (`csv`, `xml.etree.ElementTree`, `argparse`, `json`, `subprocess`) | zero zależności do zainstalowania przez `pip` — narzędzie działa "z pudełka" wszędzie, gdzie jest Python |
+| Renderowanie Gerber → SVG | Zvendorowany, samodzielny bundle Node.js (`pcb_report/assets/tracespace-bundle.mjs`), zbudowany z [`@tracespace/core`](https://github.com/tracespace/tracespace) | parsowanie RS-274X (łuki, apertury, makra) od zera byłoby dużym, ryzykownym nakładem pracy; próba użycia czysto-pythonowej biblioteki (`pcb-tools`) napotkała na niedziałające, nieaktualizowane zależności natywne (cairocffi) przy instalacji — `@tracespace/core` jest jedyną sprawdzoną, aktywnie rozwijaną biblioteką do tego zadania. Zamiast wymagać `npm install` przy każdym uruchomieniu, bundle jest budowany raz (`build_tools/`, przez `esbuild`) do jednego pliku `.mjs` bez zależności — Python woła go przez `subprocess`, przekazując tylko listę ścieżek do plików Gerber i odczytując JSON (SVG + `viewBox` + ostrzeżenia) ze stdout |
+| Wyjście | **Jeden statyczny plik HTML** (CSS + JS + dane BOM/placement/SVG w jednym pliku, bez zewnętrznych zasobów) | można go otworzyć od razu w przeglądarce, wysłać, zarchiwizować — bez hostowania serwera |
+| Interaktywność w przeglądarce | Czysty JavaScript (bez frameworków) operujący na natywnym `<svg>` | wizualizacja płytki i znaczniki komponentów są w tym samym układzie współrzędnych `viewBox` (mm) co dane pick-and-place, więc zoom/pan (transformacja CSS) i zaznaczanie (klasy CSS) nie wymagają dodatkowych przeliczeń ani bibliotek |
+| Trwałość stanu | `localStorage` przeglądarki, klucz = ID raportu (hash nazw plików Gerber + zestawu oznaczeń) | pozwala zachować checkboxy/sample/przeróbki między otwarciami tego samego raportu, bez backendu i bazy danych |
+
+### Dlaczego Node.js jest wymagany tylko w jednym miejscu
+
+Jedyny krok, który nie jest czystym Pythonem, to renderowanie Gerber → SVG (`pcb_report/gerber.py`
+woła `node pcb_report/assets/tracespace-bundle.mjs <pliki...>`). Ten plik `.mjs` jest w pełni
+samodzielny (wszystkie pakiety `@tracespace/*` są w niego wbudowane przez `esbuild`) — nie trzeba
+robić `npm install`, wystarczy sam interpreter `node` w `PATH`. Jeśli Node.js nie jest dostępny,
+narzędzie kończy się czytelnym komunikatem błędu, a reszta funkcjonalności (parsowanie BOM,
+pick-and-place) pozostaje niezależna od tego kroku.
 
 ## Struktura projektu
 
 ```
-src/
-  types.ts                     # wspólne typy domenowe (BomComponent, Placement, Sample, ReworkDef, ...)
-  store/
-    useAppStore.ts             # jedyne źródło prawdy (Zustand): BOM, placementy, statusy, rework, sample
-  lib/
-    gerber.ts                  # pipeline @tracespace/core: read → plot → renderLayers → renderBoard → SVG
-    useSvgImage.ts             # hook ładujący string SVG jako HTMLImageElement (Blob URL) dla Konva
-    bomParser.ts                # parser BOM: CSV (PapaParse) + XML (fast-xml-parser, heurystyczny)
-    placementParser.ts         # parser pliku pick-and-place (CSV), konwersja jednostek mm/cale
-  components/
-    layout/
-      Tabs.tsx                 # przełącznik zakładek Assembly / Traceability
-    assembly/
-      AssemblyTab.tsx          # layout: lista (lewo) + wizualizacja (prawo), przełącznik Top/Bottom
-      FileUploadPanel.tsx      # wgrywanie plików Gerber / BOM / PnP
-      ComponentList.tsx        # tabela komponentów: checkboxy Dostarczono/Zamontowano, wybór wiersza
-      PcbViewer.tsx            # Konva Stage: zoom/pan, tło = render Gerber, markery komponentów + pin1
-    traceability/
-      TraceabilityTab.tsx      # layout: wspólna lista reworków (lewo) + siatka kart sampli (prawo)
-      ReworkPool.tsx           # dodawanie/usuwanie pozycji na wspólnym stosie przeróbek
-      SampleCard.tsx           # karta sampla: checkboxy względem wspólnej listy reworków + notatki
-  App.tsx                       # kompozycja: nagłówek + zakładki
-  index.css                     # motyw: biel / niebieski / granat / szarości
+pcb_report/
+  cli.py                 # argparse CLI: --gerber --bom --pnp --unit -o
+  models.py              # dataclasses: BomComponent, Placement, ViewBox, GerberRenderResult
+  bom.py                 # parser BOM: CSV (stdlib csv) + XML (stdlib ElementTree, heurystyczny)
+  placement.py           # parser pick-and-place CSV, konwersja jednostek mm/cale
+  gerber.py              # subprocess -> assets/tracespace-bundle.mjs -> JSON (SVG + viewBox)
+  report.py              # składa końcowy, samodzielny plik HTML (CSS + JS + dane w jednym pliku)
+  assets/
+    tracespace-bundle.mjs  # zvendorowany, samodzielny render Gerber->SVG (Node, brak npm install)
+    report.css            # motyw: biel / niebieski / granat / szarości
+    report.js             # cała logika w przeglądarce: taby, zoom/pan, zaznaczanie, Traceability
+build_tools/              # narzędzie deweloperskie do przebudowania tracespace-bundle.mjs (nie jest
+                           # potrzebne do uruchomienia pcb_report — patrz build_tools/README.md)
 ```
 
-### Przepływ danych (Assembly)
+## Przebudowa silnika renderowania Gerber (tylko dla deweloperów)
 
-```
-Pliki Gerber ──▶ gerber.ts (@tracespace/core) ──▶ SVG + viewBox ──▶ store.gerber
-Plik BOM (CSV/XML) ──▶ bomParser.ts ──▶ BomComponent[] ──▶ store.components
-Plik PnP (CSV) ──▶ placementParser.ts ──▶ Placement[] (po designatorze) ──▶ store.placements
-                                                                              │
-ComponentList (klik na wiersz) ──▶ store.selectedComponentId ────────────────┤
-                                                                              ▼
-                                                            PcbViewer (Konva): dla KAŻDEGO
-                                                     designatora zaznaczonego wiersza rysuje
-                                                     podświetlenie na wspólnej płaszczyźnie mm
-```
-
-Kluczowe dla płynności: `PcbViewer` trzyma layer Gerbera i warstwę markerów w **tym samym układzie współrzędnych** (milimetry, oś Y odwrócona zgodnie z konwencją SVG używaną przez `@tracespace/core`), więc zaznaczenie w liście propaguje się do Canvasu przez zwykły re-render Reacta/Konva — bez dodatkowych przeliczeń czy opóźnień.
-
-## Uruchomienie
+`pcb_report/assets/tracespace-bundle.mjs` jest generowany raz i wpisany do repozytorium. Aby
+zaktualizować go po zmianie wersji `@tracespace/core`:
 
 ```bash
+cd build_tools
 npm install
-npm run dev       # serwer deweloperski
-npm run build     # build produkcyjny (tsc + vite build) do ./dist
+npm run build
 ```
 
-## Znane ograniczenia / dalsze kroki
+## Znane ograniczenia
 
-- Parser BOM XML jest heurystyczny (szuka węzłów z polem typu Designator/Reference) ze względu na brak jednego standardu formatu XML BOM między systemami CAD — dla większej niezawodności zalecany jest eksport BOM do CSV.
-- Rozmiar/kształt markera komponentu jest uproszczony (stały promień + znacznik pin 1 wg rotacji) — biblioteka nie ma dostępu do rzeczywistej geometrii footprintu (do tego potrzebny byłby plik biblioteki komponentów/IPC, poza zakresem BOM+PnP).
-- `@tracespace/core` jest w wersji `5.0.0-alpha`; pipeline jest opakowany w `try/catch` z czytelnymi komunikatami błędów, tak aby błąd renderowania Gerbera nie blokował reszty aplikacji (BOM, statusy, Traceability działają niezależnie).
+- Parser BOM XML jest heurystyczny — dla większej niezawodności zalecany jest eksport do CSV.
+- Rozmiar znacznika komponentu na wizualizacji jest uproszczony (stały promień + znacznik pinu 1 wg
+  rotacji) — narzędzie nie ma dostępu do rzeczywistej geometrii footprintu.
+- `@tracespace/core` jest w wersji `5.0.0-alpha`; błędy renderowania konkretnych plików Gerber są
+  przechwytywane i pokazywane jako ostrzeżenia w raporcie, bez przerywania działania całego narzędzia.
+- `localStorage` jest przypisany do pochodzenia (origin) przeglądarki — w niektórych konfiguracjach
+  otwieranie plików `file://` z restrykcyjnymi ustawieniami prywatności może ograniczać zapis stanu;
+  w standardowej konfiguracji Chrome/Firefox/Edge działa to poprawnie (zweryfikowano).
