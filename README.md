@@ -14,6 +14,19 @@ przeglądarce (`localStorage`), więc kolejne otwarcie tego samego pliku pamięt
 
 ## Szybki start
 
+> **Ważne:** polecenie `python -m pcb_report ...` trzeba uruchamiać **z głównego katalogu tego
+> repozytorium** (tego, w którym leży folder `pcb_report/`) — Python szuka modułu w bieżącym
+> katalogu roboczym. Jeśli chcesz wołać narzędzie z dowolnego miejsca (np. z katalogu z plikami
+> projektu PCB), zainstaluj je raz jako pakiet:
+>
+> ```bash
+> cd /ścieżka/do/repo   # katalog z pyproject.toml
+> pip install -e .
+> ```
+>
+> Od tego momentu w dowolnym katalogu działa krótsza komenda `pcb-report` (bez `python -m`,
+> bez konieczności bycia w katalogu repo) — użyta w przykładach niżej zamiennie z `python -m pcb_report`.
+
 **macOS / Linux (bash/zsh):**
 
 ```bash
@@ -45,7 +58,9 @@ python -m pcb_report `
 Następnie otwórz `report.html` w przeglądarce.
 
 **Wymagania:**
-- Python 3.9+ (używa wyłącznie biblioteki standardowej — brak `pip install`).
+- Python 3.9+. Sam kod narzędzia nie ma żadnych zależności z PyPI (używa wyłącznie biblioteki
+  standardowej) — `pip install -e .` powyżej instaluje jedynie polecenie `pcb-report` jako skrót,
+  nie pobiera żadnych pakietów.
 - **Node.js ≥ 18** dostępny w `PATH` — wymagany tylko do renderowania plików Gerber (patrz niżej,
   sekcja "Dlaczego Node.js"). Reszta narzędzia (parsowanie BOM/pick-and-place, budowa HTML) jest
   czystym Pythonem.
