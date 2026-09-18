@@ -6,27 +6,16 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
-
-# Node (build_tools only, dev-time bundle rebuild)
-node_modules
-build_tools/node_modules
-build_tools/package-lock.json
-dist
-dist-ssr
-*.local
+build/
 
 # Generated reports (output of the CLI, not source)
 /out/
 *.report.html
+examples/**/report.html
 
 # Logs
 logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
 # Editor directories and files
 .vscode/*

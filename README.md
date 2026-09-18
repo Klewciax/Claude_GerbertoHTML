@@ -12,25 +12,30 @@ wysłać mailem, dołączyć do dokumentacji partii produkcyjnej albo zarchiwizo
 interaktywny — zmiany (checkboxy, sample, przeróbki, ręczne pozycje) zapisują się lokalnie w
 przeglądarce (`localStorage`), więc kolejne otwarcie tego samego pliku pamięta poprzedni stan.
 
-## Szybki start
+Narzędzie jest w 100% Pythonem — **nie wymaga Node.js** (wcześniejsza wersja korzystała z Node.js do
+renderowania Gerberów; zostało to zastąpione czysto-pythonową biblioteką `gerbonara`, patrz sekcja
+architektura niżej).
 
-> **Ważne:** polecenie `python -m pcb_report ...` trzeba uruchamiać **z głównego katalogu tego
-> repozytorium** (tego, w którym leży folder `pcb_report/`) — Python szuka modułu w bieżącym
-> katalogu roboczym. Jeśli chcesz wołać narzędzie z dowolnego miejsca (np. z katalogu z plikami
-> projektu PCB), zainstaluj je raz jako pakiet:
->
-> ```bash
-> cd /ścieżka/do/repo   # katalog z pyproject.toml
-> pip install -e .
-> ```
->
-> Od tego momentu w dowolnym katalogu działa krótsza komenda `pcb-report` (bez `python -m`,
-> bez konieczności bycia w katalogu repo) — użyta w przykładach niżej zamiennie z `python -m pcb_report`.
+## Instalacja
+
+```bash
+cd /ścieżka/do/repo   # katalog z pyproject.toml
+pip install -e .
+```
+
+To instaluje jedyną zależność (`gerbonara`, do parsowania/renderowania Gerberów) oraz polecenie
+`pcb-report`, dostępne odtąd z dowolnego katalogu.
+
+> Bez tego kroku `python -m pcb_report ...` też zadziała, ale tylko uruchamiany **z głównego
+> katalogu repozytorium** (tego, w którym leży folder `pcb_report/`) i tylko jeśli `gerbonara` jest
+> już zainstalowana (`pip install gerbonara`) — `pip install -e .` załatwia obie rzeczy naraz.
+
+## Szybki start
 
 **macOS / Linux (bash/zsh):**
 
 ```bash
-python3 -m pcb_report \
+pcb-report \
   --gerber board-top-copper.gbr board-bottom-copper.gbr board-outline.gbr board-silkscreen.gbr \
   --bom bom.csv \
   --pnp placement.csv \
@@ -38,34 +43,13 @@ python3 -m pcb_report \
 ```
 
 **Windows (PowerShell)** — `\` na końcu linii to składnia bash i **nie zadziała** w PowerShellu
-(zostanie każdorazowo zinterpretowany jako osobna, błędna komenda); użyj jednej linii albo
-backticka `` ` ``:
+(zostanie każdorazowo zinterpretowany jako osobna, błędna komenda); użyj jednej linii:
 
 ```powershell
-python -m pcb_report --gerber board-top-copper.gbr board-bottom-copper.gbr board-outline.gbr board-silkscreen.gbr --bom bom.csv --pnp placement.csv -o report.html
-```
-
-albo:
-
-```powershell
-python -m pcb_report `
-  --gerber board-top-copper.gbr board-bottom-copper.gbr board-outline.gbr board-silkscreen.gbr `
-  --bom bom.csv `
-  --pnp placement.csv `
-  -o report.html
+pcb-report --gerber board-top-copper.gbr board-bottom-copper.gbr board-outline.gbr board-silkscreen.gbr --bom bom.csv --pnp placement.csv -o report.html
 ```
 
 Następnie otwórz `report.html` w przeglądarce.
-
-**Wymagania:**
-- Python 3.9+. Sam kod narzędzia nie ma żadnych zależności z PyPI (używa wyłącznie biblioteki
-  standardowej) — `pip install -e .` powyżej instaluje jedynie polecenie `pcb-report` jako skrót,
-  nie pobiera żadnych pakietów.
-- **Node.js ≥ 18** dostępny w `PATH` — wymagany tylko do renderowania plików Gerber (patrz niżej,
-  sekcja "Dlaczego Node.js"). Reszta narzędzia (parsowanie BOM/pick-and-place, budowa HTML) jest
-  czystym Pythonem. Jeśli zobaczysz ostrzeżenie *"Nie znaleziono polecenia 'node' w PATH"*: pobierz
-  instalator LTS z [nodejs.org](https://nodejs.org/), zainstaluj z domyślnymi opcjami, **zamknij i
-  otwórz terminal na nowo** (żeby PATH się odświeżył), i sprawdź `node --version`.
 
 Repozytorium zawiera minimalny zestaw testowy w `examples/minimal/` — najprościej uruchomić gotowy
 skrypt (nie wymaga wklejania wieloliniowych poleceń, sam ustawia wszystkie ścieżki):
@@ -75,9 +59,6 @@ skrypt (nie wymaga wklejania wieloliniowych poleceń, sam ustawia wszystkie ści
 - **macOS / Linux:** `bash examples/minimal/run_example.sh`
 
 Efekt: plik `examples/minimal/report.html`, gotowy do otwarcia w przeglądarce.
-
-Jeśli wolisz wywołać CLI ręcznie zamiast skryptu — patrz sekcje "macOS / Linux" i "Windows
-(PowerShell)" powyżej, podstawiając ścieżki z `examples/minimal/`.
 
 ## Argumenty CLI
 
@@ -103,7 +84,11 @@ Jeśli wolisz wywołać CLI ręcznie zamiast skryptu — patrz sekcje "macOS / L
 - **Pick-and-place (CSV)** — nagłówki: `Designator`, `Mid X`/`X`, `Mid Y`/`Y`, `Rotation`, `Layer`/`Side`
   (`Top`/`Bottom`). Standardowy eksport z KiCad/Altium/Eagle.
 - **Gerber** — dowolny zestaw plików RS-274X (miedź, maska, opis, obrys) i opcjonalnie Excellon
-  (wiertła); typ warstwy jest rozpoznawany automatycznie po zawartości/nazwie pliku.
+  (wiertła); typ warstwy (miedź/maska/opis/obrys/wiertła) i strona (góra/dół) są zgadywane po nazwie
+  pliku — rozpoznawane są konwencje KiCad (`*.gtl/.gbl/...` oraz `*-F.Cu.gbr/-B.Cu.gbr/...`) i typowe
+  słowa kluczowe (`top`/`bottom`/`copper`/`mask`/`silk`/`paste`/`outline`/`edge`). Plik o nierozpoznanej
+  nazwie nadal zostanie wyrenderowany (w neutralnym kolorze, pokazany po obu stronach płytki) — patrz
+  "Znane ograniczenia".
 
 ## Mapowanie komponentów BOM → wizualizacja PCB
 
@@ -120,20 +105,27 @@ Jeśli wolisz wywołać CLI ręcznie zamiast skryptu — patrz sekcje "macOS / L
 
 | Element | Wybór | Uzasadnienie |
 | --- | --- | --- |
-| Interfejs / logika | **Python 3, tylko biblioteka standardowa** (`csv`, `xml.etree.ElementTree`, `argparse`, `json`, `subprocess`) | zero zależności do zainstalowania przez `pip` — narzędzie działa "z pudełka" wszędzie, gdzie jest Python |
-| Renderowanie Gerber → SVG | Zvendorowany, samodzielny bundle Node.js (`pcb_report/assets/tracespace-bundle.mjs`), zbudowany z [`@tracespace/core`](https://github.com/tracespace/tracespace) | parsowanie RS-274X (łuki, apertury, makra) od zera byłoby dużym, ryzykownym nakładem pracy; próba użycia czysto-pythonowej biblioteki (`pcb-tools`) napotkała na niedziałające, nieaktualizowane zależności natywne (cairocffi) przy instalacji — `@tracespace/core` jest jedyną sprawdzoną, aktywnie rozwijaną biblioteką do tego zadania. Zamiast wymagać `npm install` przy każdym uruchomieniu, bundle jest budowany raz (`build_tools/`, przez `esbuild`) do jednego pliku `.mjs` bez zależności — Python woła go przez `subprocess`, przekazując tylko listę ścieżek do plików Gerber i odczytując JSON (SVG + `viewBox` + ostrzeżenia) ze stdout |
+| Interfejs / logika | **Python 3** — `csv`, `xml.etree.ElementTree`, `argparse`, `json` z biblioteki standardowej, plus jedna zależność pip (`gerbonara`) | minimalna liczba zależności; instalacja to jedno polecenie (`pip install -e .`), bez Node.js/npm |
+| Renderowanie Gerber → SVG | [`gerbonara`](https://gitlab.com/gerbolyze/gerbonara) — czysto-pythonowy parser RS-274X/Excellon | parsowanie Gerberów (łuki, apertury, makra) od zera byłoby dużym, ryzykownym nakładem pracy. Pierwsza próba (`pcb-tools`) nie dała się zainstalować (niedziałające zależności natywne, cairocffi). `gerbonara` instaluje się czystym `pip` i renderuje geometrię **pojedynczego pliku** do SVG bez żadnych wymagań co do nazewnictwa czy kompletności zestawu — jego wysokopoziomowe API (`LayerStack`) wymaga pełnego, konwencjonalnie nazwanego zestawu plików fabrykacyjnych, więc `pcb_report/gerber.py` renderuje każdy plik osobno i **samodzielnie składa** je w jeden obraz (patrz niżej), zachowując tolerancję na dowolny, niepełny zestaw plików |
 | Wyjście | **Jeden statyczny plik HTML** (CSS + JS + dane BOM/placement/SVG w jednym pliku, bez zewnętrznych zasobów) | można go otworzyć od razu w przeglądarce, wysłać, zarchiwizować — bez hostowania serwera |
 | Interaktywność w przeglądarce | Czysty JavaScript (bez frameworków) operujący na natywnym `<svg>` | wizualizacja płytki i znaczniki komponentów są w tym samym układzie współrzędnych `viewBox` (mm) co dane pick-and-place, więc zoom/pan (transformacja CSS) i zaznaczanie (klasy CSS) nie wymagają dodatkowych przeliczeń ani bibliotek |
 | Trwałość stanu | `localStorage` przeglądarki, klucz = ID raportu (hash nazw plików Gerber + zestawu oznaczeń) | pozwala zachować checkboxy/sample/przeróbki między otwarciami tego samego raportu, bez backendu i bazy danych |
 
-### Dlaczego Node.js jest wymagany tylko w jednym miejscu
+### Jak działa kompozycja wielu plików Gerber w jeden obraz
 
-Jedyny krok, który nie jest czystym Pythonem, to renderowanie Gerber → SVG (`pcb_report/gerber.py`
-woła `node pcb_report/assets/tracespace-bundle.mjs <pliki...>`). Ten plik `.mjs` jest w pełni
-samodzielny (wszystkie pakiety `@tracespace/*` są w niego wbudowane przez `esbuild`) — nie trzeba
-robić `npm install`, wystarczy sam interpreter `node` w `PATH`. Jeśli Node.js nie jest dostępny,
-narzędzie kończy się czytelnym komunikatem błędu, a reszta funkcjonalności (parsowanie BOM,
-pick-and-place) pozostaje niezależna od tego kroku.
+`pcb_report/gerber.py` parsuje każdy plik osobno przez `gerbonara.rs274x.GerberFile`/
+`gerbonara.excellon.ExcellonFile`, bierze jego geometrię (SVG) i ramkę graniczną (bounding box), po
+czym:
+
+1. Zgaduje typ warstwy (miedź/maska/opis/pasta/obrys/wiertła) i stronę (góra/dół/obie) z nazwy pliku
+   (prosta heurystyka, patrz `_classify_type`/`_classify_side` w kodzie).
+2. Liczy wspólną ramkę graniczną (sumę) wszystkich plików — to staje się `viewBox` całego SVG.
+3. Nakłada wszystkie warstwy dla danej strony na jeden `<g>`, w kolejności miedź → maska → pasta →
+   opis → obrys → wiertła, każdą w osobnym kolorze i przezroczystości.
+
+Dzięki temu narzędzie renderuje sensowny obraz płytki niezależnie od tego, czy dostaniesz 2 pliki czy
+kompletny zestaw fabrykacyjny — kosztem nieco uproszczonego (nie w pełni fotorealistycznego)
+wyglądu w porównaniu do dedykowanych narzędzi typu KiCad/gerbv.
 
 ## Struktura projektu
 
@@ -143,34 +135,26 @@ pcb_report/
   models.py              # dataclasses: BomComponent, Placement, ViewBox, GerberRenderResult
   bom.py                 # parser BOM: CSV (stdlib csv) + XML (stdlib ElementTree, heurystyczny)
   placement.py           # parser pick-and-place CSV, konwersja jednostek mm/cale
-  gerber.py              # subprocess -> assets/tracespace-bundle.mjs -> JSON (SVG + viewBox)
+  gerber.py              # gerbonara: parsowanie + kompozycja wielu plików Gerber -> jedno SVG
   report.py              # składa końcowy, samodzielny plik HTML (CSS + JS + dane w jednym pliku)
   assets/
-    tracespace-bundle.mjs  # zvendorowany, samodzielny render Gerber->SVG (Node, brak npm install)
     report.css            # motyw: biel / niebieski / granat / szarości
     report.js             # cała logika w przeglądarce: taby, zoom/pan, zaznaczanie, Traceability
-build_tools/              # narzędzie deweloperskie do przebudowania tracespace-bundle.mjs (nie jest
-                           # potrzebne do uruchomienia pcb_report — patrz build_tools/README.md)
-```
-
-## Przebudowa silnika renderowania Gerber (tylko dla deweloperów)
-
-`pcb_report/assets/tracespace-bundle.mjs` jest generowany raz i wpisany do repozytorium. Aby
-zaktualizować go po zmianie wersji `@tracespace/core`:
-
-```bash
-cd build_tools
-npm install
-npm run build
+examples/minimal/          # mały zestaw testowy + gotowe skrypty run_example.ps1 / .sh
 ```
 
 ## Znane ograniczenia
 
 - Parser BOM XML jest heurystyczny — dla większej niezawodności zalecany jest eksport do CSV.
+- Rozpoznawanie typu warstwy/strony Gerbera opiera się o nazwę pliku (prosta heurystyka), nie o
+  zawartość/nagłówki pliku — nietypowe konwencje nazewnictwa mogą zostać źle zaklasyfikowane
+  (plik nadal się wyrenderuje, tylko w neutralnym kolorze i po obu stronach płytki; pojawi się o tym
+  ostrzeżenie w raporcie).
+- Kompozycja wielu warstw jest uproszczona (stałe kolory/przezroczystość per typ warstwy, bez
+  właściwego maskowania miedzi przez maskę lutowniczą) — wystarczające do celów referencyjnych przy
+  montażu, ale nie zastępuje dedykowanego przeglądarki Gerberów (np. gerbv, KiCad) do weryfikacji fab.
 - Rozmiar znacznika komponentu na wizualizacji jest uproszczony (stały promień + znacznik pinu 1 wg
   rotacji) — narzędzie nie ma dostępu do rzeczywistej geometrii footprintu.
-- `@tracespace/core` jest w wersji `5.0.0-alpha`; błędy renderowania konkretnych plików Gerber są
-  przechwytywane i pokazywane jako ostrzeżenia w raporcie, bez przerywania działania całego narzędzia.
 - `localStorage` jest przypisany do pochodzenia (origin) przeglądarki — w niektórych konfiguracjach
   otwieranie plików `file://` z restrykcyjnymi ustawieniami prywatności może ograniczać zapis stanu;
   w standardowej konfiguracji Chrome/Firefox/Edge działa to poprawnie (zweryfikowano).

@@ -4,29 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .models import BomComponent, GerberRenderResult, Placement
 
 _ASSETS_DIR = Path(__file__).parent / "assets"
-
-_SVG_OUTER_RE = re.compile(r"^\s*<svg[^>]*>(.*)</svg>\s*$", re.DOTALL)
-
-
-def _strip_svg_outer_tag(svg: str | None) -> str | None:
-    """Return only the inner markup of a top-level <svg>...</svg> string.
-
-    The rendered Gerber SVG is re-embedded as a nested <g> inside the
-    report's own SVG (which already shares the same viewBox/coordinate
-    space as the pick-and-place data), so only the inner defs/paths are
-    needed here.
-    """
-    if not svg:
-        return None
-    match = _SVG_OUTER_RE.match(svg)
-    return match.group(1) if match else svg
 
 
 def _make_report_id(gerber_paths: list[str], components: list[BomComponent]) -> str:
@@ -65,8 +48,8 @@ def build_report_html(
         "reportId": resolved_report_id,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "viewBox": gerber_result.view_box.to_dict() if gerber_result.view_box else None,
-        "topSvgInner": _strip_svg_outer_tag(gerber_result.top_svg),
-        "bottomSvgInner": _strip_svg_outer_tag(gerber_result.bottom_svg),
+        "topSvgInner": gerber_result.top_svg,
+        "bottomSvgInner": gerber_result.bottom_svg,
         "warnings": gerber_result.warnings,
         "components": [c.to_dict() for c in components],
         "placements": {designator: p.to_dict() for designator, p in placements.items()},
