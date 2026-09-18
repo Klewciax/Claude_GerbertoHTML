@@ -14,11 +14,31 @@ przeglądarce (`localStorage`), więc kolejne otwarcie tego samego pliku pamięt
 
 ## Szybki start
 
+**macOS / Linux (bash/zsh):**
+
 ```bash
 python3 -m pcb_report \
   --gerber board-top-copper.gbr board-bottom-copper.gbr board-outline.gbr board-silkscreen.gbr \
   --bom bom.csv \
   --pnp placement.csv \
+  -o report.html
+```
+
+**Windows (PowerShell)** — `\` na końcu linii to składnia bash i **nie zadziała** w PowerShellu
+(zostanie każdorazowo zinterpretowany jako osobna, błędna komenda); użyj jednej linii albo
+backticka `` ` ``:
+
+```powershell
+python -m pcb_report --gerber board-top-copper.gbr board-bottom-copper.gbr board-outline.gbr board-silkscreen.gbr --bom bom.csv --pnp placement.csv -o report.html
+```
+
+albo:
+
+```powershell
+python -m pcb_report `
+  --gerber board-top-copper.gbr board-bottom-copper.gbr board-outline.gbr board-silkscreen.gbr `
+  --bom bom.csv `
+  --pnp placement.csv `
   -o report.html
 ```
 
@@ -39,6 +59,12 @@ python3 -m pcb_report \
   --bom examples/minimal/bom.csv \
   --pnp examples/minimal/pnp.csv \
   -o examples/minimal/report.html
+```
+
+W PowerShellu (jedna linia):
+
+```powershell
+python -m pcb_report --gerber examples/minimal/outline.gbr examples/minimal/copper.gbr --bom examples/minimal/bom.csv --pnp examples/minimal/pnp.csv -o examples/minimal/report.html
 ```
 
 ## Argumenty CLI
