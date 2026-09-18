@@ -63,24 +63,21 @@ Następnie otwórz `report.html` w przeglądarce.
   nie pobiera żadnych pakietów.
 - **Node.js ≥ 18** dostępny w `PATH` — wymagany tylko do renderowania plików Gerber (patrz niżej,
   sekcja "Dlaczego Node.js"). Reszta narzędzia (parsowanie BOM/pick-and-place, budowa HTML) jest
-  czystym Pythonem.
+  czystym Pythonem. Jeśli zobaczysz ostrzeżenie *"Nie znaleziono polecenia 'node' w PATH"*: pobierz
+  instalator LTS z [nodejs.org](https://nodejs.org/), zainstaluj z domyślnymi opcjami, **zamknij i
+  otwórz terminal na nowo** (żeby PATH się odświeżył), i sprawdź `node --version`.
 
-Repozytorium zawiera minimalny zestaw testowy w `examples/minimal/` — możesz od razu wygenerować
-przykładowy raport:
+Repozytorium zawiera minimalny zestaw testowy w `examples/minimal/` — najprościej uruchomić gotowy
+skrypt (nie wymaga wklejania wieloliniowych poleceń, sam ustawia wszystkie ścieżki):
 
-```bash
-python3 -m pcb_report \
-  --gerber examples/minimal/outline.gbr examples/minimal/copper.gbr \
-  --bom examples/minimal/bom.csv \
-  --pnp examples/minimal/pnp.csv \
-  -o examples/minimal/report.html
-```
+- **Windows:** kliknij prawym przyciskiem na `examples\minimal\run_example.ps1` → *Uruchom za pomocą
+  programu PowerShell* (albo z terminala: `powershell -File examples\minimal\run_example.ps1`).
+- **macOS / Linux:** `bash examples/minimal/run_example.sh`
 
-W PowerShellu (jedna linia):
+Efekt: plik `examples/minimal/report.html`, gotowy do otwarcia w przeglądarce.
 
-```powershell
-python -m pcb_report --gerber examples/minimal/outline.gbr examples/minimal/copper.gbr --bom examples/minimal/bom.csv --pnp examples/minimal/pnp.csv -o examples/minimal/report.html
-```
+Jeśli wolisz wywołać CLI ręcznie zamiast skryptu — patrz sekcje "macOS / Linux" i "Windows
+(PowerShell)" powyżej, podstawiając ścieżki z `examples/minimal/`.
 
 ## Argumenty CLI
 
