@@ -16,21 +16,54 @@ Narzędzie jest w 100% Pythonem — **nie wymaga Node.js** (wcześniejsza wersja
 renderowania Gerberów; zostało to zastąpione czysto-pythonową biblioteką `gerbonara`, patrz sekcja
 architektura niżej).
 
-## Instalacja
+## Instalacja (3 kroki)
+
+**1. Wymagania:** [Python 3.9+](https://www.python.org/downloads/) (przy instalacji na Windows
+zaznacz "Add python.exe to PATH"). Nic więcej — żadnego Node.js, żadnych osobnych baz danych.
+
+**2. Pobierz kod:**
 
 ```bash
-cd /ścieżka/do/repo   # katalog z pyproject.toml
-pip install -e .
+git clone https://github.com/Klewciax/Claude_GerbertoHTML.git
+cd Claude_GerbertoHTML
 ```
 
-To instaluje jedyną zależność (`gerbonara`, do parsowania/renderowania Gerberów) oraz polecenie
-`pcb-report`, dostępne odtąd z dowolnego katalogu.
+(Bez gita: przycisk **Code → Download ZIP** na stronie repo na GitHubie, rozpakuj, wejdź do
+rozpakowanego folderu.)
 
-> Bez tego kroku `python -m pcb_report ...` też zadziała, ale tylko uruchamiany **z głównego
-> katalogu repozytorium** (tego, w którym leży folder `pcb_report/`) i tylko jeśli `gerbonara` jest
-> już zainstalowana (`pip install gerbonara`) — `pip install -e .` załatwia obie rzeczy naraz.
+**3. Zainstaluj:**
+
+```bash
+python -m pip install -e .
+```
+
+(Na niektórych systemach polecenie to `python3` zamiast `python` — jeśli `python -m pip ...` da
+błąd "nie znaleziono polecenia", spróbuj `python3 -m pip install -e .`.)
+
+Sprawdź, czy zadziałało:
+
+```bash
+pcb-report --help
+```
+
+Jeśli zobaczysz opis argumentów (`--gerber`, `--bom`, ...) — gotowe, `pcb-report` działa już z
+dowolnego katalogu. Ten krok instaluje jedyną zależność (`gerbonara`, do renderowania Gerberów) —
+nie trzeba niczego instalować osobno.
 
 ## Szybki start
+
+### Najpierw wypróbuj na przykładzie (zero pisania poleceń z własnymi ścieżkami)
+
+Repozytorium zawiera mały zestaw testowy w `examples/minimal/` z gotowym skryptem:
+
+- **Windows:** kliknij prawym przyciskiem na `examples\minimal\run_example.ps1` → *Uruchom za pomocą
+  programu PowerShell* (albo z terminala: `powershell -File examples\minimal\run_example.ps1`).
+- **macOS / Linux:** `bash examples/minimal/run_example.sh`
+
+Efekt: plik `examples/minimal/report.html`, gotowy do otwarcia w przeglądarce. Jeśli to zadziałało —
+instalacja jest poprawna.
+
+### Z własnymi plikami
 
 **macOS / Linux (bash/zsh):**
 
@@ -50,15 +83,6 @@ pcb-report --gerber board-top-copper.gbr board-bottom-copper.gbr board-outline.g
 ```
 
 Następnie otwórz `report.html` w przeglądarce.
-
-Repozytorium zawiera minimalny zestaw testowy w `examples/minimal/` — najprościej uruchomić gotowy
-skrypt (nie wymaga wklejania wieloliniowych poleceń, sam ustawia wszystkie ścieżki):
-
-- **Windows:** kliknij prawym przyciskiem na `examples\minimal\run_example.ps1` → *Uruchom za pomocą
-  programu PowerShell* (albo z terminala: `powershell -File examples\minimal\run_example.ps1`).
-- **macOS / Linux:** `bash examples/minimal/run_example.sh`
-
-Efekt: plik `examples/minimal/report.html`, gotowy do otwarcia w przeglądarce.
 
 ## Argumenty CLI
 
