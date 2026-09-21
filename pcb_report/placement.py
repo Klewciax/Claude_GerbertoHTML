@@ -58,6 +58,20 @@ def _find_axis_field(row: dict[str, str], pattern: re.Pattern) -> tuple[Optional
     return None, None
 
 
+def _parse_float(raw: str) -> Optional[float]:
+    """Tries a plain float() first, then falls back to treating a comma as
+    the decimal separator (e.g. "12,345") — common in pick-and-place files
+    exported under a European regional format."""
+    try:
+        return float(raw)
+    except ValueError:
+        pass
+    try:
+        return float(raw.replace(",", "."))
+    except ValueError:
+        return None
+
+
 def _unit_factor(explicit_unit: str, header_unit: Optional[str]) -> float:
     if header_unit in ("mil",):
         return MIL_TO_MM
@@ -159,6 +173,8 @@ def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], l
 
     warnings: list[str] = []
     placements: list[Placement] = []
+    skipped_bad_position: list[tuple[str, str, str]] = []
+    skipped_bad_position_count = 0
     for raw_line in lines[header_index + 1 :]:
         line = raw_line.rstrip("\r\n")
         if not line.strip() or line.strip().startswith("#"):
@@ -172,16 +188,19 @@ def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], l
         y_raw, y_unit = _find_axis_field(clean_row, _Y_PATTERN)
         if not designator or x_raw is None or y_raw is None:
             continue
-        try:
-            x = float(x_raw) * _unit_factor(unit, x_unit)
-            y = float(y_raw) * _unit_factor(unit, y_unit)
-        except ValueError:
+        x_val = _parse_float(x_raw)
+        y_val = _parse_float(y_raw)
+        if x_val is None or y_val is None:
+            skipped_bad_position_count += 1
+            if len(skipped_bad_position) < 5:
+                skipped_bad_position.append((designator, x_raw, y_raw))
             continue
+        x = x_val * _unit_factor(unit, x_unit)
+        y = y_val * _unit_factor(unit, y_unit)
 
         rotation_raw = _find_field(clean_row, ROTATION_KEYS)
-        try:
-            rotation = float(rotation_raw) if rotation_raw else 0.0
-        except ValueError:
+        rotation = _parse_float(rotation_raw) if rotation_raw else 0.0
+        if rotation is None:
             rotation = 0.0
 
         placements.append(
@@ -198,6 +217,12 @@ def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], l
         warnings.append(
             "Nie znaleziono poprawnych wierszy z pozycją (Designator, Mid X/Center-X, Mid Y/Center-Y). "
             "Sprawdź nagłówki pliku pick-and-place."
+        )
+    if skipped_bad_position_count:
+        examples = "; ".join(f"{d}: X={x!r} Y={y!r}" for d, x, y in skipped_bad_position)
+        warnings.append(
+            f"Pominięto {skipped_bad_position_count} wiersz(y) z pozycją X/Y, której nie udało się "
+            f"odczytać jako liczbę (np. {examples}) — sprawdź separator dziesiętny/format liczb w pliku."
         )
 
     return placements, warnings
