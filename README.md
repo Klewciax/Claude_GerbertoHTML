@@ -243,8 +243,11 @@ przed dostawą w kolorowaniu).
 `gerbonara.excellon.ExcellonFile`, bierze jego geometrię (SVG) i ramkę graniczną (bounding box), po
 czym:
 
-1. Zgaduje typ warstwy (miedź/maska/opis/pasta/courtyard/obrys/wiertła) i stronę (góra/dół/obie) z
-   nazwy pliku (prosta heurystyka, patrz `_classify_type`/`_classify_side` w kodzie).
+1. Ustala typ warstwy (miedź/maska/opis/pasta/courtyard/obrys/wiertła) i stronę (góra/dół/obie).
+   Jeśli plik zawiera standardowy atrybut Gerber X2 `%TF.FileFunction,...*%` (tak eksportują
+   domyślnie Altium i KiCad), korzysta z niego — to niezawodny, niezależny od nazwy pliku sposób.
+   W przeciwnym razie (starszy RS-274X bez atrybutów X2) zgaduje z nazwy pliku (prosta heurystyka,
+   patrz `_classify_from_attrs`/`_classify_type`/`_classify_side` w kodzie).
 2. Odfiltrowuje miedź i maskę, chyba że podano `--all-layers` (patrz "Format plików wejściowych").
 3. Liczy wspólną ramkę graniczną (sumę) pozostałych plików — to staje się `viewBox` całego SVG.
 4. Nakłada pozostałe warstwy dla danej strony na jeden `<g>`, w kolejności miedź → maska → pasta →
@@ -301,10 +304,12 @@ examples/minimal/          # mały zestaw testowy + gotowe skrypty run_example.p
 ## Znane ograniczenia
 
 - Parser BOM XML jest heurystyczny — dla większej niezawodności zalecany jest eksport do CSV.
-- Rozpoznawanie typu warstwy/strony Gerbera opiera się o nazwę pliku (prosta heurystyka), nie o
-  zawartość/nagłówki pliku — nietypowe konwencje nazewnictwa mogą zostać źle zaklasyfikowane
-  (plik nadal się wyrenderuje, tylko w neutralnym kolorze i po obu stronach płytki; pojawi się o tym
-  ostrzeżenie w raporcie).
+- Rozpoznawanie typu warstwy/strony Gerbera korzysta z atrybutu X2 `%TF.FileFunction,...*%`, gdy plik
+  go zawiera (typowe dla eksportu z Altium/KiCad) — wtedy nazwa pliku nie ma znaczenia. Dla plików bez
+  tego atrybutu (starszy RS-274X) klasyfikacja opiera się o nazwę pliku (prosta heurystyka) —
+  nietypowe konwencje nazewnictwa mogą wtedy zostać źle zaklasyfikowane (plik nadal się wyrenderuje,
+  tylko w neutralnym kolorze i po obu stronach płytki, ewentualnie nie zostanie odfiltrowany mimo że
+  to miedź/maska; pojawi się o tym ostrzeżenie w raporcie).
 - Kompozycja wielu warstw jest uproszczona (stałe kolory/przezroczystość per typ warstwy, bez
   właściwego maskowania miedzi przez maskę lutowniczą) — wystarczające do celów referencyjnych przy
   montażu, ale nie zastępuje dedykowanego przeglądarki Gerberów (np. gerbv, KiCad) do weryfikacji fab.

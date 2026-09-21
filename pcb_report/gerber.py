@@ -103,6 +103,45 @@ def _classify_type(name: str) -> LayerType:
     return "unknown"
 
 
+_FILE_FUNCTION_TYPE_MAP: dict[str, LayerType] = {
+    "copper": "copper",
+    "soldermask": "mask",
+    "legend": "silk",
+    "paste": "paste",
+    "courtyard": "courtyard",
+    "assemblydrawing": "courtyard",
+    "profile": "outline",
+    "drill": "drill",
+}
+
+
+def _classify_from_attrs(file_attrs: dict) -> Optional[tuple[LayerType, Side]]:
+    """Classify layer type/side from the Gerber X2 ``%TF.FileFunction,...*%``
+    file attribute when present, instead of guessing from the filename.
+
+    This is the standard, tool-independent way fab-export software (Altium,
+    KiCad, ...) declares what a layer actually is, so it's far more
+    reliable than filename heuristics — which can misclassify a layer as
+    "unknown" (rendered by default, since an unrecognized file might be an
+    unusually-named board outline) when it's actually copper/mask that
+    should be excluded from the Assembly view.
+    """
+    values = file_attrs.get(".FileFunction")
+    if not values:
+        return None
+    layer_type = _FILE_FUNCTION_TYPE_MAP.get(str(values[0]).strip().lower())
+    if layer_type is None:
+        return None
+    side: Side = "all"
+    for token in values[1:]:
+        t = str(token).strip().lower()
+        if t == "top":
+            side = "top"
+        elif t in ("bot", "bottom"):
+            side = "bottom"
+    return layer_type, side
+
+
 def _classify_side(name: str) -> Side:
     n = name.lower()
     ext = _extension(n)
@@ -203,8 +242,17 @@ def _parse_file(path: str, warnings: list[str]) -> Optional[_ParsedFile]:
         return None
     body = _recolor(match.group(1))
 
-    layer_type = _classify_type(name)
-    side = _classify_side(name)
+    from_attrs = _classify_from_attrs(getattr(parsed, "file_attrs", None) or {})
+    if from_attrs is not None:
+        layer_type, side = from_attrs
+        if side == "all":
+            # FileFunction declared a type but no top/bottom (e.g. an inner
+            # copper layer, or a board-wide Profile) — filename may still
+            # narrow the side down.
+            side = _classify_side(name)
+    else:
+        layer_type = _classify_type(name)
+        side = _classify_side(name)
     objects = getattr(parsed, "objects", None) if layer_type in ("silk", "courtyard") else None
     return _ParsedFile(path, layer_type, side, bbox, body, objects=objects)
 
