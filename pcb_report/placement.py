@@ -88,6 +88,21 @@ def _sniff_delimiter(sample_line: str) -> str:
         return ","
 
 
+# Altium's ASCII pick-and-place report starts with a title/date banner
+# before the actual column header line ("Free Format Pick and Place data
+# for ..."), so — like the analogous BOM/xlsx banner-row issue — the header
+# can't be assumed to be line 1; several lines are scanned for the first
+# one that actually looks like a Designator+X+Y header.
+_HEADER_SCAN_LINES = 20
+
+
+def _looks_like_placement_header(fields: list[str]) -> bool:
+    has_designator = any(_normalize_key(h) in DESIGNATOR_KEYS for h in fields)
+    has_x = any(_X_PATTERN.match(_compact(h)) for h in fields)
+    has_y = any(_Y_PATTERN.match(_compact(h)) for h in fields)
+    return has_designator and has_x and has_y
+
+
 def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], list[str]]:
     warnings: list[str] = []
 
@@ -95,8 +110,27 @@ def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], l
     if not lines:
         return [], ["Plik jest pusty."]
 
-    delimiter = _sniff_delimiter(lines[0])
-    reader = csv.DictReader(io.StringIO("\n".join(lines)), delimiter=delimiter)
+    header_index = None
+    delimiter = None
+    for i, line in enumerate(lines[:_HEADER_SCAN_LINES]):
+        if not line.strip():
+            continue
+        d = _sniff_delimiter(line)
+        row = next(csv.reader(io.StringIO(line), delimiter=d), None)
+        if not row or len(row) < 2:
+            continue
+        if _looks_like_placement_header([c.strip() for c in row]):
+            header_index, delimiter = i, d
+            break
+
+    if header_index is None:
+        return [], [
+            "Nie znaleziono wiersza nagłówka z oznaczeniem (Designator) i pozycją X/Y "
+            f"(przeszukano pierwsze {_HEADER_SCAN_LINES} niepustych linii pliku). "
+            "Sprawdź format pliku pick-and-place."
+        ]
+
+    reader = csv.DictReader(io.StringIO("\n".join(lines[header_index:])), delimiter=delimiter)
     if reader.fieldnames is None:
         return [], ["Plik jest pusty lub nie zawiera nagłówka."]
 

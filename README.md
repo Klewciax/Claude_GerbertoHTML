@@ -185,6 +185,8 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
   konwencji `Mid X`/`Mid Y`, `Center-X`/`Center-Y`, `PosX`/`PosY`, `Ref X`/`Ref Y` (opcjonalnie z
   jednostką w nazwie, np. `Center-X(mil)`), `Rotation`, `Layer`/`Side` (`Top`/`Bottom`). Standardowy
   eksport z KiCad/Altium/Eagle; delimiter (przecinek/tabulator/średnik) wykrywany automatycznie.
+  Altium często dodaje przed właściwym nagłówkiem linię tytułową/datę — przeszukiwane jest pierwsze
+  ~20 niepustych linii pliku w poszukiwaniu tej z Designator+X+Y, więc taki banner nie przeszkadza.
 - **Gerber** — dowolny zestaw plików RS-274X (miedź, maska, opis, pasta, courtyard, obrys) i
   opcjonalnie Excellon (wiertła). Jeśli plik zawiera standardowy atrybut Gerber X2
   `%TF.FileFunction,...*%` (domyślne w nowszym eksporcie z Altium/KiCad), typ warstwy i strona są

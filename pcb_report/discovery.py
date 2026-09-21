@@ -53,31 +53,43 @@ def is_gerber_extension(ext: str) -> bool:
     return ext in GERBER_EXTENSIONS or bool(_INNER_COPPER_RE.match(ext)) or bool(_MECHANICAL_RE.match(ext))
 
 
-def _read_header_row(path: Path) -> Optional[list[str]]:
-    """Best-effort header row for a delimited text file, or None if it
-    doesn't look tabular at all (e.g. an Excellon drill file)."""
+_HEADER_SCAN_LINES = 20
+
+
+def _iter_text_header_candidates(path: Path, max_lines: int = _HEADER_SCAN_LINES):
+    """Yields each of the first `max_lines` non-empty lines of a delimited
+    text file, parsed as a header row. Altium's ASCII pick-and-place report
+    (and some BOM CSV exports) start with a title/date banner before the
+    actual column header line, so — same issue as the xlsx banner-row case
+    above — several lines are offered as candidates rather than assuming
+    line 1 is the header."""
     try:
         with open(path, "r", encoding="utf-8-sig", errors="ignore") as f:
-            sample = f.read(8192)
+            lines = []
+            for line in f:
+                if line.strip().startswith("#"):
+                    continue
+                lines.append(line)
+                if len(lines) >= max_lines:
+                    break
     except OSError:
-        return None
+        return
 
-    first_line = sample.splitlines()[0] if sample.splitlines() else ""
-    if not first_line:
-        return None
-
-    try:
-        dialect = csv.Sniffer().sniff(first_line, delimiters=",;\t")
-        delimiter = dialect.delimiter
-    except csv.Error:
-        delimiter = "," if "," in first_line else "\t" if "\t" in first_line else ";" if ";" in first_line else None
-    if delimiter is None:
-        return None
-
-    row = next(csv.reader(io.StringIO(first_line), delimiter=delimiter), None)
-    if not row or len(row) < 2:
-        return None
-    return [c.strip() for c in row]
+    for line in lines:
+        line = line.rstrip("\r\n")
+        if not line.strip():
+            continue
+        try:
+            dialect = csv.Sniffer().sniff(line, delimiters=",;\t")
+            delimiter = dialect.delimiter
+        except csv.Error:
+            delimiter = "," if "," in line else "\t" if "\t" in line else ";" if ";" in line else None
+        if delimiter is None:
+            continue
+        row = next(csv.reader(io.StringIO(line), delimiter=delimiter), None)
+        if not row or len(row) < 2:
+            continue
+        yield [c.strip() for c in row]
 
 
 def _looks_like_excellon_drill(path: Path) -> bool:
@@ -149,8 +161,11 @@ def discover_project_files(project_dir: Path) -> DiscoveryResult:
             if _looks_like_excellon_drill(path):
                 result.gerber_paths.append(str(path))
                 continue
-            header = _read_header_row(path)
-            kind = classify_tabular_header(header) if header else "unknown"
+            kind = "unknown"
+            for header in _iter_text_header_candidates(path):
+                kind = classify_tabular_header(header)
+                if kind != "unknown":
+                    break
             if kind == "pnp":
                 pnp_candidates.append(path)
             elif kind == "bom":
