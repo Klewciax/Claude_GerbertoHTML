@@ -47,6 +47,7 @@ _COLORS: dict[LayerType, str] = {
     "courtyard": "#5fb8d6",
     "drill": "#1a1a1a",
     "outline": "#f0c000",
+    "mechanical": "#b46fc9",
     "unknown": "#8fa0b3",
 }
 _OPACITY: dict[LayerType, float] = {
@@ -57,24 +58,37 @@ _OPACITY: dict[LayerType, float] = {
     "courtyard": 0.8,
     "drill": 1.0,
     "outline": 1.0,
+    "mechanical": 0.5,
     "unknown": 0.55,
 }
 # Draw order, bottom to top.
-_Z_ORDER: list[LayerType] = ["unknown", "copper", "mask", "paste", "courtyard", "silk", "outline", "drill"]
+_Z_ORDER: list[LayerType] = ["unknown", "mechanical", "copper", "mask", "paste", "courtyard", "silk", "outline", "drill"]
 
 # Layers actually useful for placing/checking components by hand. Copper
 # and solder mask are fab/electrical detail that only clutters an assembly
 # reference view, so they're left out unless --all-layers is passed.
+# "mechanical" (see _classify_type) is excluded for the same reason: it's a
+# positively-identified Altium GM<n> layer whose specific purpose (fab
+# notes, dimensions, height restrictions, ...) is defined per-project and
+# can't be inferred from the extension. "unknown" — a filename that doesn't
+# match any recognized convention at all — stays included, since it might
+# be someone's unconventionally-named board outline.
 ASSEMBLY_RELEVANT_TYPES = {"outline", "silk", "paste", "courtyard", "drill", "unknown"}
 
 _TOP_EXTENSIONS = {"gtl", "gts", "gto", "gtp"}
 _BOTTOM_EXTENSIONS = {"gbl", "gbs", "gbo", "gbp"}
 _DRILL_EXTENSIONS = {"drl", "xnc", "tho", "thd", "nc"}
-# Altium mechanical layers: GM1 is conventionally the board outline; GM13/14
-# are top/bottom courtyard, GM15/16 top/bottom assembly (fabrication) —
-# grouped with courtyard here since both serve the same "assembly reference
-# outline" purpose.
+# Altium mechanical layers: GM1 (and the GML extension some templates use
+# instead) is conventionally the board outline; GM13/14 are top/bottom
+# courtyard, GM15/16 top/bottom assembly (fabrication) — grouped with
+# courtyard here since both serve the same "assembly reference outline"
+# purpose. Any other GMxx is a real Altium mechanical layer but with
+# unknown, project-specific purpose — see "mechanical" in _classify_type.
 _COURTYARD_MECHANICAL_EXTENSIONS = {"gm13", "gm14", "gm15", "gm16"}
+_GENERIC_MECHANICAL_RE = re.compile(r"gm\d+")
+# Bare "G<n>" (no "M") is Altium's convention for internal copper signal
+# layers (G1, G2, ...), distinct from "GM<n>" mechanical layers above.
+_INNER_COPPER_RE = re.compile(r"g\d+")
 
 _INNER_G_RE = re.compile(r"<g\s+transform=\"[^\"]*\">(.*)</g>\s*</svg>", re.DOTALL)
 
@@ -86,9 +100,9 @@ def _extension(name: str) -> str:
 def _classify_type(name: str) -> LayerType:
     n = name.lower()
     ext = _extension(n)
-    if ext in ("gko", "gm1") or "outline" in n or "edge" in n or "cuts" in n or "profile" in n:
+    if ext in ("gko", "gm1", "gml") or "outline" in n or "edge" in n or "cuts" in n or "profile" in n:
         return "outline"
-    if ext in _COURTYARD_MECHANICAL_EXTENSIONS or "courtyard" in n or "crtyd" in n or "assembly" in n or "assy" in n or "fab" in n:
+    if ext in _COURTYARD_MECHANICAL_EXTENSIONS or "courtyard" in n or "crtyd" in n:
         return "courtyard"
     if ext in ("gto", "gbo") or "silk" in n:
         return "silk"
@@ -96,10 +110,23 @@ def _classify_type(name: str) -> LayerType:
         return "paste"
     if ext in ("gts", "gbs") or "mask" in n or "resist" in n:
         return "mask"
-    if ext in ("gtl", "gbl") or re.search(r"[-_.]cu\b", n) or "copper" in n:
+    if (
+        ext in ("gtl", "gbl")
+        or _INNER_COPPER_RE.fullmatch(ext)
+        or re.search(r"[-_.]cu\b", n)
+        or "copper" in n
+    ):
         return "copper"
     if ext in _DRILL_EXTENSIONS or "drill" in n or "drl" in n:
         return "drill"
+    if _GENERIC_MECHANICAL_RE.fullmatch(ext):
+        # A recognized Altium mechanical layer, but not one of the known
+        # roles above (outline/courtyard) — its actual purpose (dimensions,
+        # fab notes, height restrictions, ...) is defined per-project and
+        # can't be guessed from the extension, so it's treated like
+        # copper/mask: excluded from the default Assembly view (see
+        # ASSEMBLY_RELEVANT_TYPES), shown only with --all-layers.
+        return "mechanical"
     return "unknown"
 
 
@@ -445,11 +472,19 @@ def render_gerber_files(
         return GerberRenderResult(warnings=warnings)
 
     if not all_layers:
-        skipped = [f for f in parsed_files if f.layer_type not in ASSEMBLY_RELEVANT_TYPES]
-        if skipped:
+        skipped_copper_mask = [f for f in parsed_files if f.layer_type in ("copper", "mask")]
+        if skipped_copper_mask:
             warnings.append(
                 "Pominięto w widoku Assembly warstwy miedzi/maski (nieistotne do rozmieszczania komponentów): "
-                + ", ".join(Path(f.path).name for f in skipped)
+                + ", ".join(Path(f.path).name for f in skipped_copper_mask)
+                + ". Użyj --all-layers, aby jednak je pokazać."
+            )
+        skipped_mechanical = [f for f in parsed_files if f.layer_type == "mechanical"]
+        if skipped_mechanical:
+            warnings.append(
+                "Pominięto inne warstwy mechaniczne Altium (przeznaczenie zależy od konkretnego projektu — "
+                "wymiary, notatki fabrykacyjne itp.): "
+                + ", ".join(Path(f.path).name for f in skipped_mechanical)
                 + ". Użyj --all-layers, aby jednak je pokazać."
             )
         parsed_files = [f for f in parsed_files if f.layer_type in ASSEMBLY_RELEVANT_TYPES]

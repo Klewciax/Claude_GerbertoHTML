@@ -179,16 +179,23 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
   jednostką w nazwie, np. `Center-X(mil)`), `Rotation`, `Layer`/`Side` (`Top`/`Bottom`). Standardowy
   eksport z KiCad/Altium/Eagle; delimiter (przecinek/tabulator/średnik) wykrywany automatycznie.
 - **Gerber** — dowolny zestaw plików RS-274X (miedź, maska, opis, pasta, courtyard, obrys) i
-  opcjonalnie Excellon (wiertła); typ warstwy i strona (góra/dół) są zgadywane po nazwie pliku —
-  rozpoznawane są konwencje KiCad (`*.gtl/.gbl/...` oraz `*-F.Cu.gbr/-B.Cu.gbr/...`), Altium
-  (warstwy mechaniczne `GM1` = obrys, `GM13`/`GM14` = courtyard góra/dół, `GM15`/`GM16` = fabrykacja)
-  i typowe słowa kluczowe (`top`/`bottom`/`copper`/`mask`/`silk`/`paste`/`outline`/`edge`/`courtyard`).
-  Plik o nierozpoznanej nazwie nadal zostanie wyrenderowany (w neutralnym kolorze, pokazany po obu
-  stronach płytki) — patrz "Znane ograniczenia".
+  opcjonalnie Excellon (wiertła). Jeśli plik zawiera standardowy atrybut Gerber X2
+  `%TF.FileFunction,...*%` (domyślne w nowszym eksporcie z Altium/KiCad), typ warstwy i strona są
+  odczytywane właśnie z niego — nazwa pliku nie ma wtedy znaczenia. W przeciwnym razie (starszy,
+  przed-X2 RS-274X, częsty w starszych eksportach z Altium) zgadywane są z nazwy pliku: rozpoznawane
+  są konwencje KiCad (`*.gtl/.gbl/...` oraz `*-F.Cu.gbr/-B.Cu.gbr/...`), Altium (`.G1`/`.G2`/... =
+  wewnętrzne warstwy miedzi, `.GKO`/`.GML`/`GM1` = obrys, `GM13`/`GM14` = courtyard góra/dół,
+  `GM15`/`GM16` = fabrykacja, pozostałe `.GM<numer>` = inna warstwa mechaniczna o nieznanym z nazwy
+  przeznaczeniu) i typowe słowa kluczowe (`top`/`bottom`/`copper`/`mask`/`silk`/`paste`/`outline`/
+  `edge`/`courtyard`). Plik o nierozpoznanej w ogóle nazwie nadal zostanie wyrenderowany (w
+  neutralnym kolorze, pokazany po obu stronach płytki) — patrz "Znane ograniczenia".
 
-  **Domyślnie warstwy miedzi i maski lutowniczej są pomijane** w widoku Assembly — nie są potrzebne
-  do rozmieszczania komponentów i tylko zaśmiecają widok; zostaje obrys, silkscreen, pasta, courtyard
-  i wiertła. Żeby jednak je pokazać (np. do weryfikacji fabrykacyjnej), dodaj flagę `--all-layers`.
+  **Domyślnie warstwy miedzi, maski lutowniczej i innych nierozpoznanych warstw mechanicznych Altium
+  (`.GM<numer>` poza obrysem/courtyardem) są pomijane** w widoku Assembly — nie są potrzebne do
+  rozmieszczania komponentów, a w praktycznych projektach Altium bywa ich dziesiątki (wymiary, notatki
+  fabrykacyjne, strefy wysokości...) i tylko zaśmiecają widok; zostaje obrys, silkscreen, pasta,
+  courtyard i wiertła. Żeby jednak je pokazać (np. do weryfikacji fabrykacyjnej), dodaj flagę
+  `--all-layers`.
 
 ## Mapowanie komponentów BOM → wizualizacja PCB
 
