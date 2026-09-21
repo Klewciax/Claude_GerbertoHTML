@@ -266,12 +266,34 @@ def parse_bom_xlsx(path: str) -> tuple[list[BomComponent], list[str]]:
     return components, warnings
 
 
+# Tried in order; the last one (latin-1) can decode any byte sequence at
+# all, so this loop always terminates rather than crashing on a file saved
+# in a Windows codepage (e.g. cp1250 for Central European locales) instead
+# of UTF-8 -- common for Altium/company exports made on a non-English
+# Windows.
+_FALLBACK_ENCODINGS = ("utf-8-sig", "cp1250", "latin-1")
+
+
+def _read_text_file(path: str) -> tuple[str, str]:
+    for encoding in _FALLBACK_ENCODINGS:
+        try:
+            with open(path, "r", encoding=encoding) as f:
+                return f.read(), encoding
+        except UnicodeDecodeError:
+            continue
+    with open(path, "r", encoding="latin-1", errors="replace") as f:
+        return f.read(), "latin-1 (z zastępowaniem błędnych znaków)"
+
+
 def parse_bom_file(path: str) -> tuple[list[BomComponent], list[str]]:
     lower = path.lower()
     if lower.endswith(".xlsx"):
         return parse_bom_xlsx(path)
-    with open(path, "r", encoding="utf-8-sig") as f:
-        text = f.read()
+    text, encoding = _read_text_file(path)
     if lower.endswith(".xml"):
-        return parse_bom_xml(text)
-    return parse_bom_csv(text)
+        components, warnings = parse_bom_xml(text)
+    else:
+        components, warnings = parse_bom_csv(text)
+    if encoding != "utf-8-sig":
+        warnings = [f"Plik nie jest zapisany w UTF-8 — odczytano jako {encoding}."] + warnings
+    return components, warnings
