@@ -59,6 +59,18 @@ Jeśli zobaczysz opis argumentów (`--gerber`, `--bom`, ...) — gotowe, `pcb-re
 dowolnego katalogu. Ten krok instaluje jedyną zależność (`gerbonara`, do renderowania Gerberów) —
 nie trzeba niczego instalować osobno.
 
+> **Na Windows: `'pcb-report' is not recognized`?** To najczęstszy problem po instalacji — polecenie
+> zainstalowało się poprawnie, ale folder ze skryptami Pythona nie jest w `PATH`, więc system go nie
+> widzi (poszukaj w outpucie kroku 3 ostrzeżenia *"...is installed in ...\Scripts which is not on
+> PATH"`). Najprostsze obejście, działa zawsze i wszędzie — używaj `python -m pcb_report` zamiast
+> samego `pcb-report`, uruchamiane **z głównego katalogu repozytorium** (tego z `pyproject.toml`):
+> ```powershell
+> python -m pcb_report --gerber ... --bom bom.csv --pnp placement.csv -o report.html
+> ```
+> Działa identycznie jak `pcb-report`, tylko trzeba pamiętać o katalogu. (Nigdy nie łącz tego z
+> `python` — `python pcb-report ...` próbuje otworzyć plik o nazwie `pcb-report` jako skrypt, czego
+> nie ma w repozytorium, i zawsze się wywali.)
+
 ## Szybki start
 
 ### Najpierw wypróbuj na przykładzie (zero pisania poleceń z własnymi ścieżkami)
