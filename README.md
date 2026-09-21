@@ -9,8 +9,17 @@ Narzędzie CLI w Pythonie: wskazujesz pliki **Gerber**, **BOM** (CSV/XML) i opcj
 
 Wygenerowany plik `report.html` można otworzyć bezpośrednio w przeglądarce (dwuklik, bez serwera),
 wysłać mailem, dołączyć do dokumentacji partii produkcyjnej albo zarchiwizować. Jest w pełni
-interaktywny — zmiany (checkboxy, sample, przeróbki, ręczne pozycje) zapisują się lokalnie w
+interaktywny — zmiany (ilości, sample, przeróbki, ręczne pozycje) zapisują się lokalnie w
 przeglądarce (`localStorage`), więc kolejne otwarcie tego samego pliku pamięta poprzedni stan.
+
+**Praca wielu osób nad tym samym raportem:** `localStorage` jest przypisany do jednej przeglądarki na
+jednym komputerze — zniknie po wyczyszczeniu danych przeglądarki i nie jest widoczny na innym
+urządzeniu. Do przekazywania stanu między osobami/komputerami służą przyciski **„Eksportuj stan”** /
+**„Importuj stan”** w nagłówku raportu: eksport pobiera mały plik `.json` ze wszystkimi zmianami,
+który można umieścić gdziekolwiek wygodnie danej osobie (SharePoint, Teams, dysk sieciowy, mail,
+USB) — narzędzie nie narzuca konkretnego kanału. Import ostrzega, jeśli plik pochodzi z innego
+raportu (inne pliki Gerber/BOM) albo jest starszy niż stan już otwarty w przeglądarce, żeby nie
+nadpisać przypadkiem nowszej pracy starszym plikiem.
 
 Narzędzie jest w 100% Pythonem — **nie wymaga Node.js** (wcześniejsza wersja korzystała z Node.js do
 renderowania Gerberów; zostało to zastąpione czysto-pythonową biblioteką `gerbonara`, patrz sekcja

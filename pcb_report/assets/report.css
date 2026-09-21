@@ -56,6 +56,13 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .app__brand p { margin: 0; font-size: 0.75rem; color: var(--gray-300); }
 .app__meta { font-size: 0.7rem; color: var(--gray-300); text-align: right; }
 
+.app__sync { display: flex; align-items: center; gap: 6px; }
+.app__sync button {
+  border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: var(--white);
+  border-radius: 6px; padding: 6px 10px; font-size: 0.76rem; font-weight: 600;
+}
+.app__sync button:hover { background: rgba(255,255,255,0.18); }
+
 .tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.08); padding: 4px; border-radius: 8px; }
 .tabs__button {
   border: none; background: transparent; color: var(--gray-300);

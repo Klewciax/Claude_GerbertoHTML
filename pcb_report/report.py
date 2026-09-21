@@ -87,6 +87,11 @@ def build_report_html(
       <button type="button" class="tabs__button is-active" data-tab="assembly">Assembly</button>
       <button type="button" class="tabs__button" data-tab="traceability">Traceability</button>
     </nav>
+    <div class="app__sync">
+      <button type="button" id="exportStateBtn" title="Zapisz plik ze stanem (do przekazania innej osobie/komputerowi)">⭳ Eksportuj stan</button>
+      <button type="button" id="importStateBtn" title="Wczytaj wcześniej wyeksportowany plik stanu">⭱ Importuj stan</button>
+      <input type="file" id="importStateInput" accept=".json,application/json" style="display:none;" />
+    </div>
     <div class="app__meta">Wygenerowano: {generated_label}<br/>ID raportu: {resolved_report_id}</div>
   </header>
 

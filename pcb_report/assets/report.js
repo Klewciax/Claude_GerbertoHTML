@@ -83,7 +83,7 @@
   // Persisted state (localStorage) merged on top of the generated data
   // ---------------------------------------------------------------------
   function defaultPersisted() {
-    return { manualPlacements: {}, reworks: [], samples: [], stock: {}, groupByPart: true };
+    return { manualPlacements: {}, reworks: [], samples: [], stock: {}, groupByPart: true, lastModified: null };
   }
 
   function loadPersisted() {
@@ -97,6 +97,7 @@
         samples: parsed.samples || [],
         stock: parsed.stock || {},
         groupByPart: parsed.groupByPart != null ? parsed.groupByPart : true,
+        lastModified: parsed.lastModified || null,
       };
     } catch (e) {
       console.warn('Nie udalo sie odczytac zapisanego stanu:', e);
@@ -106,19 +107,28 @@
 
   var persisted = loadPersisted();
 
-  function persist() {
+  // Builds the full transferable state payload — used both for the
+  // localStorage write and for the exported "state file" (multi-user sync
+  // without a server: export on one machine, import on another).
+  function buildStatePayload() {
     var manualPlacements = {};
     Object.keys(state.placements).forEach(function (designator) {
       var p = state.placements[designator];
       if (p.manual) manualPlacements[designator] = p;
     });
-    var payload = {
+    return {
       manualPlacements: manualPlacements,
       reworks: state.reworks,
       samples: state.samples,
       stock: state.stock,
       groupByPart: state.groupByPart,
+      lastModified: state.lastModified,
     };
+  }
+
+  function persist() {
+    state.lastModified = new Date().toISOString();
+    var payload = buildStatePayload();
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
@@ -138,6 +148,7 @@
     samples: persisted.samples,
     stock: persisted.stock,
     groupByPart: persisted.groupByPart,
+    lastModified: persisted.lastModified,
   };
 
   function getStock(key) {
@@ -769,6 +780,102 @@
       sample.notes = e.target.value;
       persist();
     }
+  });
+
+  // ---------------------------------------------------------------------
+  // Eksport / import stanu — synchronizacja bez serwera. Kilka osob na
+  // roznych komputerach moze przekazywac sobie maly plik .json (mail, dysk
+  // sieciowy, USB) zamiast polegac wylacznie na localStorage przegladarki,
+  // ktory znika po wyczyszczeniu cache albo nie jest widoczny na innym
+  // urzadzeniu.
+  // ---------------------------------------------------------------------
+  var exportBtn = document.getElementById('exportStateBtn');
+  var importBtn = document.getElementById('importStateBtn');
+  var importInput = document.getElementById('importStateInput');
+
+  function exportState() {
+    state.lastModified = new Date().toISOString();
+    var payload = buildStatePayload();
+    payload.reportId = DATA.reportId;
+    payload.exportedAt = state.lastModified;
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var stamp = payload.exportedAt.replace(/[:.]/g, '-');
+    a.href = url;
+    a.download = 'pcb-report-stan-' + DATA.reportId + '-' + stamp + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    persist();
+  }
+
+  function refreshAllViews() {
+    updateListHead();
+    renderComponentList();
+    updateSummary();
+    renderBoard();
+    renderShortagePanel();
+    renderReworkPool();
+    renderSamples();
+  }
+
+  function importStateFromFile(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var parsed;
+      try {
+        parsed = JSON.parse(reader.result);
+      } catch (e) {
+        window.alert('Nie udało się odczytać pliku stanu: to nie jest poprawny plik JSON.');
+        return;
+      }
+
+      if (parsed.reportId && parsed.reportId !== DATA.reportId) {
+        var proceedDifferent = window.confirm(
+          'Ten plik stanu pochodzi z innego raportu (inne pliki Gerber/BOM) — oznaczenia mogą się nie zgadzać. ' +
+          'Zaimportować mimo to?'
+        );
+        if (!proceedDifferent) return;
+      } else if (state.lastModified && parsed.lastModified && parsed.lastModified < state.lastModified) {
+        var proceedOlder = window.confirm(
+          'Importowany plik jest STARSZY niż obecny stan w tej przeglądarce (obecny: ' +
+          new Date(state.lastModified).toLocaleString() + ', w pliku: ' +
+          new Date(parsed.lastModified).toLocaleString() + '). Import nadpisze bieżące dane starszymi. Kontynuować?'
+        );
+        if (!proceedOlder) return;
+      } else if (!window.confirm('Zaimportować stan z pliku? Nadpisze to bieżące dane w tej przeglądarce.')) {
+        return;
+      }
+
+      state.placements = Object.assign({}, DATA.placements, parsed.manualPlacements || {});
+      state.reworks = parsed.reworks || [];
+      state.samples = parsed.samples || [];
+      state.stock = parsed.stock || {};
+      state.groupByPart = parsed.groupByPart != null ? parsed.groupByPart : true;
+      state.lastModified = parsed.lastModified || new Date().toISOString();
+      state.selection = { key: null, designator: null };
+      state.mappingDesignator = null;
+
+      groupToggle.checked = state.groupByPart;
+      refreshAllViews();
+      updateMappingHint();
+      persist();
+      window.alert('Zaimportowano stan z pliku.');
+    };
+    reader.onerror = function () {
+      window.alert('Nie udało się odczytać pliku.');
+    };
+    reader.readAsText(file);
+  }
+
+  exportBtn.addEventListener('click', exportState);
+  importBtn.addEventListener('click', function () { importInput.click(); });
+  importInput.addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (file) importStateFromFile(file);
+    importInput.value = '';
   });
 
   // ---------------------------------------------------------------------
