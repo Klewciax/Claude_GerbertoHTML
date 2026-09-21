@@ -132,18 +132,13 @@ class DiscoveryResult:
 
 
 def discover_project_files(project_dir: Path) -> DiscoveryResult:
+    """Searches the *entire* directory tree under project_dir, not just its
+    top level — Altium's "Project Outputs" folder typically splits Gerber /
+    NC Drill / Bill of Materials / Pick and Place into separate
+    subfolders, at an arbitrary nesting depth and under arbitrary names.
+    """
     result = DiscoveryResult()
-
-    search_dirs = [project_dir]
-    if not _has_any_gerber(project_dir):
-        for sub in ("gerber", "gerbers", "fab", "cam", "camoutputs"):
-            candidate = project_dir / sub
-            if candidate.is_dir():
-                search_dirs.append(candidate)
-
-    files: list[Path] = []
-    for d in search_dirs:
-        files.extend(p for p in d.iterdir() if p.is_file())
+    files = [p for p in project_dir.rglob("*") if p.is_file()]
 
     bom_candidates: list[Path] = []
     pnp_candidates: list[Path] = []
@@ -181,10 +176,16 @@ def discover_project_files(project_dir: Path) -> DiscoveryResult:
 
         # Anything else (readme, zip, pdf report, ...) is silently ignored.
 
+    def _rel(p: Path) -> str:
+        try:
+            return str(p.relative_to(project_dir))
+        except ValueError:
+            return str(p)
+
     if len(bom_candidates) == 1:
         result.bom_path = str(bom_candidates[0])
     elif len(bom_candidates) > 1:
-        names = ", ".join(p.name for p in bom_candidates)
+        names = ", ".join(_rel(p) for p in bom_candidates)
         result.errors.append(
             f"Znaleziono więcej niż jeden plik wyglądający na BOM ({names}) — wskaż właściwy przez --bom."
         )
@@ -192,14 +193,14 @@ def discover_project_files(project_dir: Path) -> DiscoveryResult:
     if pnp_candidates:
         result.pnp_paths = [str(p) for p in pnp_candidates]
         if len(pnp_candidates) > 1:
-            names = ", ".join(p.name for p in pnp_candidates)
+            names = ", ".join(_rel(p) for p in pnp_candidates)
             result.warnings.append(
                 f"Znaleziono kilka plików pick-and-place ({names}) — połączono je razem "
                 "(typowe dla oddzielnych raportów Top/Bottom w Altium)."
             )
 
     if unresolved:
-        names = ", ".join(p.name for p in unresolved)
+        names = ", ".join(_rel(p) for p in unresolved)
         result.warnings.append(
             f"Nie rozpoznano przeznaczenia plików: {names} — zignorowano. "
             "Jeśli to BOM lub pick-and-place, wskaż je jawnie przez --bom / --pnp."
@@ -211,10 +212,3 @@ def discover_project_files(project_dir: Path) -> DiscoveryResult:
         result.errors.append(f"Nie znaleziono pliku BOM w '{project_dir}' — wskaż go przez --bom.")
 
     return result
-
-
-def _has_any_gerber(project_dir: Path) -> bool:
-    try:
-        return any(is_gerber_extension(p.suffix) for p in project_dir.iterdir() if p.is_file())
-    except OSError:
-        return False

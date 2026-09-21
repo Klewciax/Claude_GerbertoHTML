@@ -51,23 +51,29 @@ def _resolve_inputs(args: argparse.Namespace, project_dir: Path) -> tuple[list[s
     need_discovery = args.gerber is None or args.bom is None or args.pnp is None
     discovered = discover_project_files(project_dir) if need_discovery else None
 
+    def _rel(p: str) -> str:
+        try:
+            return str(Path(p).relative_to(project_dir))
+        except ValueError:
+            return p
+
     gerber_paths = args.gerber
     if gerber_paths is None:
         gerber_paths = discovered.gerber_paths
         if gerber_paths:
-            print(f"Auto-wykryto {len(gerber_paths)} plik(ów) Gerber w '{project_dir}': " + ", ".join(Path(p).name for p in gerber_paths))
+            print(f"Auto-wykryto {len(gerber_paths)} plik(ów) Gerber w '{project_dir}' (przeszukano wszystkie podfoldery): " + ", ".join(_rel(p) for p in gerber_paths))
 
     bom_path = args.bom
     if bom_path is None:
         bom_path = discovered.bom_path
         if bom_path:
-            print(f"Auto-wykryto plik BOM: {Path(bom_path).name}")
+            print(f"Auto-wykryto plik BOM: {_rel(bom_path)}")
 
     pnp_paths = args.pnp
     if pnp_paths is None:
         pnp_paths = discovered.pnp_paths
         if pnp_paths:
-            print(f"Auto-wykryto plik(i) pick-and-place: " + ", ".join(Path(p).name for p in pnp_paths))
+            print(f"Auto-wykryto plik(i) pick-and-place: " + ", ".join(_rel(p) for p in pnp_paths))
 
     if need_discovery:
         for warning in discovered.warnings:

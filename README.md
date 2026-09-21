@@ -141,9 +141,13 @@ Następnie otwórz `report.html` w przeglądarce.
 
 ### Jak działa auto-wykrywanie (i jak rozróżnia BOM od pick-and-place)
 
-Oba pliki bywają w tym samym formacie (`.csv`, a w Altium pick-and-place często `.txt`) — ta sama
-nazwa rozszerzenia nic nie mówi o zawartości, więc auto-wykrywanie **otwiera i sprawdza nagłówek
-kolumn** każdego kandydata, zamiast zgadywać po rozszerzeniu:
+Przeszukiwane jest **całe drzewo katalogów** pod wskazanym `KATALOG` (dowolna głębokość, dowolne
+nazwy podfolderów) — folder "Project Outputs" z Altium typowo rozbija Gerber/NC Drill/BOM/
+Pick-and-Place na osobne podfoldery, więc auto-wykrywanie nie ogranicza się do najwyższego poziomu.
+
+Oba pliki (BOM i pick-and-place) bywają w tym samym formacie (`.csv`, a w Altium pick-and-place
+często `.txt`) — sama nazwa rozszerzenia nic nie mówi o zawartości, więc auto-wykrywanie **otwiera i
+sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzeniu:
 
 - Ma parę kolumn pozycji (`Mid X`/`Mid Y`, `Center-X`/`Center-Y`, `PosX`/`PosY`, ...) → **pick-and-place**.
 - Ma kolumnę Designator/Reference, ale bez pary kolumn pozycji → **BOM**.
