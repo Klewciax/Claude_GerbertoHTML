@@ -48,6 +48,28 @@ class ViewBox:
 
 
 @dataclass
+class BomVariant:
+    """One assembly variant (e.g. Altium project variants like "Critical" /
+    "NotCritical" / a plain, non-variant BOM) — its own component list and,
+    when a matching pick-and-place source was found for it, its own
+    placements. Several variants can be embedded in one report so the user
+    picks which one they're currently assembling without re-running the
+    tool."""
+
+    name: str
+    components: list[BomComponent] = field(default_factory=list)
+    placements: dict[str, Placement] = field(default_factory=dict)
+    source_bom: str = ""
+    source_pnp: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "components": [c.to_dict() for c in self.components],
+            "placements": {designator: p.to_dict() for designator, p in self.placements.items()},
+        }
+
+
+@dataclass
 class GerberRenderResult:
     top_svg: Optional[str] = None
     bottom_svg: Optional[str] = None

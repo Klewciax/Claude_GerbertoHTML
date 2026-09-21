@@ -7,19 +7,21 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .models import BomComponent, GerberRenderResult, Placement
+from .models import BomVariant, GerberRenderResult
 
 _ASSETS_DIR = Path(__file__).parent / "assets"
 
 
-def _make_report_id(gerber_paths: list[str], components: list[BomComponent]) -> str:
+def _make_report_id(gerber_paths: list[str], variants: dict[str, BomVariant]) -> str:
     """A stable-ish id derived from the input file names + designator set,
     used as the localStorage key so re-running the tool on the same project
     keeps prior checklist/traceability progress, while a different project
-    gets its own separate state.
+    gets its own separate state. Uses the union of every variant's
+    designators so the id doesn't shift depending on which variant happens
+    to be default.
     """
     basenames = sorted(Path(p).name for p in gerber_paths)
-    designators = sorted(d for c in components for d in c.designators)
+    designators = sorted({d for v in variants.values() for c in v.components for d in c.designators})
     digest_input = "|".join(basenames) + "::" + ",".join(designators)
     return hashlib.sha1(digest_input.encode("utf-8")).hexdigest()[:16]
 
@@ -34,15 +36,15 @@ def build_report_html(
     *,
     gerber_paths: list[str],
     gerber_result: GerberRenderResult,
-    components: list[BomComponent],
-    placements: dict[str, Placement],
+    variants: dict[str, BomVariant],
+    default_variant: str,
     report_id: str | None = None,
     title: str = "GerbertoHTML — raport Assembly / Traceability",
 ) -> str:
     css = (_ASSETS_DIR / "report.css").read_text(encoding="utf-8")
     js = (_ASSETS_DIR / "report.js").read_text(encoding="utf-8")
 
-    resolved_report_id = report_id or _make_report_id(gerber_paths, components)
+    resolved_report_id = report_id or _make_report_id(gerber_paths, variants)
 
     data = {
         "reportId": resolved_report_id,
@@ -51,8 +53,8 @@ def build_report_html(
         "topSvgInner": gerber_result.top_svg,
         "bottomSvgInner": gerber_result.bottom_svg,
         "warnings": gerber_result.warnings,
-        "components": [c.to_dict() for c in components],
-        "placements": {designator: p.to_dict() for designator, p in placements.items()},
+        "variants": {name: v.to_dict() for name, v in variants.items()},
+        "defaultVariant": default_variant,
         "componentShapes": gerber_result.component_shapes,
     }
     data_json = _escape_for_script_tag(json.dumps(data, ensure_ascii=False))
@@ -105,6 +107,11 @@ def build_report_html(
             <h2>Dane wejściowe</h2>
             <p>Plik(i) Gerber: {_html_escape(', '.join(Path(p).name for p in gerber_paths) or '—')}</p>
             {warnings_html}
+          </div>
+
+          <div class="variant-picker" id="variantPicker" style="display:none;">
+            <label for="variantSelect">Wariant montażu</label>
+            <select id="variantSelect"></select>
           </div>
 
           <div class="assembly-tab__summary">

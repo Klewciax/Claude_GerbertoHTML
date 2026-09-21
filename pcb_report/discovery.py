@@ -114,11 +114,132 @@ def classify_tabular_header(header: list[str]) -> str:
     return "unknown"
 
 
+_SIDE_TOKENS = {"top", "bottom", "bot"}
+
+
+def _common_prefix(strings: list[str]) -> str:
+    if not strings:
+        return ""
+    prefix = strings[0]
+    for s in strings[1:]:
+        while not s.startswith(prefix):
+            prefix = prefix[:-1]
+            if not prefix:
+                return ""
+    return prefix
+
+
+def _derive_variant_labels(paths: list[Path]) -> dict[Path, str]:
+    """Best-effort short label per file, derived from what differs after
+    their shared filename prefix — e.g. "..._Critical.xlsx" vs.
+    "..._NotCritical.xlsx" -> "Critical" / "NotCritical" — since Altium
+    project variants are conventionally exported as one BOM/pick-and-place
+    file per variant, all sharing the project's base filename. Falls back
+    to the plain filename when the derived label would be empty or collide
+    with another file's label, so every file always gets a usable label
+    even when the naming doesn't share a clean prefix.
+    """
+    stems = [p.stem for p in paths]
+    prefix = _common_prefix(stems)
+    if prefix and not any(s == prefix for s in stems):
+        # The prefix doesn't correspond to any file's full name by itself,
+        # so it may land mid-word for the others (e.g. cut off partway
+        # through a shared word) — back up to the last separator. When one
+        # stem *is* exactly the prefix (the base/no-suffix variant), trust
+        # it as-is instead: it's a real, complete name, not a partial one.
+        cut = len(prefix)
+        while cut > 0 and prefix[cut - 1] not in "-_ ":
+            cut -= 1
+        prefix = prefix[:cut]
+
+    labels: dict[Path, str] = {}
+    seen: set[str] = set()
+    for p, stem in zip(paths, stems):
+        suffix = stem[len(prefix):].strip("-_ ").strip("[]").strip()
+        label = suffix or "Podstawowy"
+        if label in seen:
+            label = stem
+        seen.add(label)
+        labels[p] = label
+    return labels
+
+
+def _is_side_split(paths: list[Path]) -> bool:
+    """True when a set of pick-and-place candidates differ only by a
+    top/bottom-side token (the common case of separate Top/Bottom reports),
+    as opposed to genuinely different assembly variants — the former should
+    still be merged together, the latter should not."""
+    labels = _derive_variant_labels(paths)
+    return all(_compact(label) in _SIDE_TOKENS for label in labels.values())
+
+
+def _pair_variant_labels(bom_labels: dict[Path, str], pnp_labels: dict[Path, str]) -> dict[str, Path]:
+    """Best-effort match of each BOM variant label to a pick-and-place file
+    carrying recognizably similar wording in its own label (e.g. BOM
+    "Critical" <-> pick-and-place "..._Critical") — variant naming isn't
+    standardized, so this deliberately uses a forgiving substring match on
+    a compacted, lowercased label rather than requiring an exact one.
+    Leftover single BOM/pick-and-place variants that couldn't be matched by
+    wording (e.g. BOM's default-variant label vs. a pick-and-place file
+    named "No Variations") are then paired positionally as a last resort.
+    """
+    used: set[Path] = set()
+    pairing: dict[str, Path] = {}
+
+    # Pass 1: exact match on the compacted label — the overwhelmingly
+    # common case for real variant names, and immune to one label being an
+    # accidental substring of another ("Critical" is literally a substring
+    # of "NotCritical", so a same-pass substring check would risk cross-
+    # matching them depending on dict iteration order).
+    for bom_label in bom_labels.values():
+        bom_c = _compact(bom_label)
+        if not bom_c:
+            continue
+        for pnp_path, pnp_label in pnp_labels.items():
+            if pnp_path in used:
+                continue
+            if bom_c == _compact(pnp_label):
+                pairing[bom_label] = pnp_path
+                used.add(pnp_path)
+                break
+
+    # Pass 2: forgiving substring match for whatever's left (e.g. a
+    # pick-and-place filename that repeats the project code around the
+    # variant name) — only among labels pass 1 couldn't resolve.
+    for bom_label in bom_labels.values():
+        if bom_label in pairing:
+            continue
+        bom_c = _compact(bom_label)
+        if not bom_c:
+            continue
+        for pnp_path, pnp_label in pnp_labels.items():
+            if pnp_path in used:
+                continue
+            pnp_c = _compact(pnp_label)
+            if bom_c in pnp_c or pnp_c in bom_c:
+                pairing[bom_label] = pnp_path
+                used.add(pnp_path)
+                break
+
+    unmatched_bom = [label for label in bom_labels.values() if label not in pairing]
+    unmatched_pnp = [p for p in pnp_labels if p not in used]
+    if len(unmatched_bom) == 1 and len(unmatched_pnp) == 1:
+        pairing[unmatched_bom[0]] = unmatched_pnp[0]
+    return pairing
+
+
 @dataclass
 class DiscoveryResult:
     gerber_paths: list[str] = field(default_factory=list)
     bom_path: Optional[str] = None
     pnp_paths: list[str] = field(default_factory=list)
+    # Populated instead of bom_path/pnp_paths when several BOM files were
+    # found that look like assembly variants of the same project (e.g.
+    # Altium's Critical/NotCritical/... project variants) rather than one
+    # unambiguous BOM: label -> file path, and label -> matching
+    # pick-and-place file(s) when one could be paired to it by name.
+    bom_variants: dict[str, str] = field(default_factory=dict)
+    pnp_variants: dict[str, list[str]] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -182,15 +303,38 @@ def discover_project_files(project_dir: Path) -> DiscoveryResult:
         except ValueError:
             return str(p)
 
+    pnp_consumed_as_variants = False
+
     if len(bom_candidates) == 1:
         result.bom_path = str(bom_candidates[0])
     elif len(bom_candidates) > 1:
-        names = ", ".join(_rel(p) for p in bom_candidates)
-        result.errors.append(
-            f"Znaleziono więcej niż jeden plik wyglądający na BOM ({names}) — wskaż właściwy przez --bom."
-        )
+        bom_labels = _derive_variant_labels(bom_candidates)  # Path -> label
+        result.bom_variants = {label: str(path) for path, label in bom_labels.items()}
 
-    if pnp_candidates:
+        pnp_labels: dict[Path, str] = {}
+        if len(pnp_candidates) > 1 and not _is_side_split(pnp_candidates):
+            pnp_labels = _derive_variant_labels(pnp_candidates)
+            pnp_consumed_as_variants = True
+
+        variant_names = ", ".join(sorted(result.bom_variants))
+        if pnp_labels:
+            pairing = _pair_variant_labels(bom_labels, pnp_labels)
+            for bom_label, pnp_path in pairing.items():
+                result.pnp_variants[bom_label] = [str(pnp_path)]
+            unpaired = sorted(set(result.bom_variants) - set(pairing))
+            result.warnings.append(
+                f"Wykryto {len(bom_labels)} wariantów montażu ({variant_names}) — pick-and-place dopasowano "
+                f"automatycznie po nazwie dla: {', '.join(sorted(pairing)) or '(brak)'}."
+                + (f" Bez dopasowania (pozycjonowanie ręczne): {', '.join(unpaired)}." if unpaired else "")
+                + " Wybór wariantu montażu jest dostępny w wygenerowanym raporcie."
+            )
+        else:
+            result.warnings.append(
+                f"Wykryto {len(bom_labels)} wariantów montażu ({variant_names}) — wybór wariantu montażu "
+                "jest dostępny w wygenerowanym raporcie."
+            )
+
+    if pnp_candidates and not pnp_consumed_as_variants:
         result.pnp_paths = [str(p) for p in pnp_candidates]
         if len(pnp_candidates) > 1:
             names = ", ".join(_rel(p) for p in pnp_candidates)
@@ -208,7 +352,7 @@ def discover_project_files(project_dir: Path) -> DiscoveryResult:
 
     if not result.gerber_paths:
         result.errors.append(f"Nie znaleziono żadnych plików Gerber/Excellon w '{project_dir}'.")
-    if result.bom_path is None and not any("BOM" in e for e in result.errors):
+    if result.bom_path is None and not result.bom_variants and not any("BOM" in e for e in result.errors):
         result.errors.append(f"Nie znaleziono pliku BOM w '{project_dir}' — wskaż go przez --bom.")
 
     return result

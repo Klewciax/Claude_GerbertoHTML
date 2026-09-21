@@ -45,9 +45,9 @@
     return 'row:' + component.id;
   }
 
-  function buildPartGroups() {
+  function buildPartGroups(variantName) {
     var map = {};
-    DATA.components.forEach(function (c) {
+    DATA.variants[variantName].components.forEach(function (c) {
       var key = buildPartKey(c);
       if (!map[key]) {
         map[key] = { key: key, designators: [], value: c.value, footprint: c.footprint, mpn: c.mpn, description: c.description, bomNeeded: 0 };
@@ -62,9 +62,9 @@
     return rows;
   }
 
-  function buildFlatRows() {
+  function buildFlatRows(variantName) {
     var rows = [];
-    DATA.components.forEach(function (c) {
+    DATA.variants[variantName].components.forEach(function (c) {
       var key = buildPartKey(c);
       c.designators.forEach(function (d) {
         rows.push({ key: key, designator: d, value: c.value, footprint: c.footprint, mpn: c.mpn });
@@ -74,16 +74,21 @@
     return rows;
   }
 
-  var partGroups = buildPartGroups();
-  var partGroupsByKey = {};
-  partGroups.forEach(function (r) { partGroupsByKey[r.key] = r; });
-  var flatRows = buildFlatRows();
+  // Recomputed whenever the active assembly variant changes — see
+  // switchVariant() below — since each variant has its own component list.
+  var partGroups, partGroupsByKey, flatRows;
+  function rebuildPartData() {
+    partGroups = buildPartGroups(state.activeVariant);
+    partGroupsByKey = {};
+    partGroups.forEach(function (r) { partGroupsByKey[r.key] = r; });
+    flatRows = buildFlatRows(state.activeVariant);
+  }
 
   // ---------------------------------------------------------------------
   // Persisted state (localStorage) merged on top of the generated data
   // ---------------------------------------------------------------------
   function defaultPersisted() {
-    return { manualPlacements: {}, reworks: [], samples: [], stock: {}, groupByPart: true, lastModified: null };
+    return { manualPlacements: {}, reworks: [], samples: [], variantProgress: {}, groupByPart: true, activeVariant: null, lastModified: null };
   }
 
   function loadPersisted() {
@@ -91,12 +96,20 @@
       var raw = window.localStorage.getItem(STORAGE_KEY);
       if (!raw) return defaultPersisted();
       var parsed = JSON.parse(raw);
+      var variantProgress = parsed.variantProgress || {};
+      if (!parsed.variantProgress && parsed.stock) {
+        // Migrate state saved before assembly variants existed (a flat
+        // `stock` map covering the report's one implicit variant) into the
+        // new per-variant shape, so upgrading doesn't lose progress.
+        variantProgress[DATA.defaultVariant] = parsed.stock;
+      }
       return {
         manualPlacements: parsed.manualPlacements || {},
         reworks: parsed.reworks || [],
         samples: parsed.samples || [],
-        stock: parsed.stock || {},
+        variantProgress: variantProgress,
         groupByPart: parsed.groupByPart != null ? parsed.groupByPart : true,
+        activeVariant: parsed.activeVariant || null,
         lastModified: parsed.lastModified || null,
       };
     } catch (e) {
@@ -109,7 +122,9 @@
 
   // Builds the full transferable state payload — used both for the
   // localStorage write and for the exported "state file" (multi-user sync
-  // without a server: export on one machine, import on another).
+  // without a server: export on one machine, import on another). Carries
+  // *every* variant's progress (not just the one currently shown), so
+  // switching variants or importing/exporting never drops anyone's data.
   function buildStatePayload() {
     var manualPlacements = {};
     Object.keys(state.placements).forEach(function (designator) {
@@ -120,8 +135,9 @@
       manualPlacements: manualPlacements,
       reworks: state.reworks,
       samples: state.samples,
-      stock: state.stock,
+      variantProgress: state.variantProgress,
       groupByPart: state.groupByPart,
+      activeVariant: state.activeVariant,
       lastModified: state.lastModified,
     };
   }
@@ -139,21 +155,51 @@
   // ---------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------
+  var initialVariant = (persisted.activeVariant && DATA.variants[persisted.activeVariant]) ? persisted.activeVariant : DATA.defaultVariant;
   var state = {
-    placements: Object.assign({}, DATA.placements, persisted.manualPlacements),
+    activeVariant: initialVariant,
+    placements: Object.assign({}, DATA.variants[initialVariant].placements, persisted.manualPlacements),
     selection: { key: null, designator: null },
     mappingDesignator: null,
     activeSide: 'top',
     reworks: persisted.reworks,
     samples: persisted.samples,
-    stock: persisted.stock,
+    variantProgress: persisted.variantProgress,
     groupByPart: persisted.groupByPart,
     lastModified: persisted.lastModified,
   };
+  rebuildPartData();
+
+  function getVariantProgress() {
+    if (!state.variantProgress[state.activeVariant]) state.variantProgress[state.activeVariant] = {};
+    return state.variantProgress[state.activeVariant];
+  }
 
   function getStock(key) {
-    if (!state.stock[key]) state.stock[key] = { neededOverride: null, delivered: 0, mounted: 0 };
-    return state.stock[key];
+    var vp = getVariantProgress();
+    if (!vp[key]) vp[key] = { neededOverride: null, delivered: 0, mounted: 0 };
+    return vp[key];
+  }
+
+  function manualPlacementsOnly() {
+    var manual = {};
+    Object.keys(state.placements).forEach(function (d) {
+      if (state.placements[d].manual) manual[d] = state.placements[d];
+    });
+    return manual;
+  }
+
+  function switchVariant(name) {
+    if (!DATA.variants[name] || name === state.activeVariant) return;
+    var manual = manualPlacementsOnly();
+    state.activeVariant = name;
+    state.placements = Object.assign({}, DATA.variants[name].placements, manual);
+    state.selection = { key: null, designator: null };
+    state.mappingDesignator = null;
+    rebuildPartData();
+    refreshAllViews();
+    updateMappingHint();
+    persist();
   }
 
   function neededFor(key) {
@@ -864,10 +910,14 @@
         return;
       }
 
-      state.placements = Object.assign({}, DATA.placements, parsed.manualPlacements || {});
+      state.placements = Object.assign({}, DATA.variants[state.activeVariant].placements, parsed.manualPlacements || {});
       state.reworks = parsed.reworks || [];
       state.samples = parsed.samples || [];
-      state.stock = parsed.stock || {};
+      var importedVariantProgress = parsed.variantProgress || {};
+      if (!parsed.variantProgress && parsed.stock) {
+        importedVariantProgress[DATA.defaultVariant] = parsed.stock;
+      }
+      state.variantProgress = importedVariantProgress;
       state.groupByPart = parsed.groupByPart != null ? parsed.groupByPart : true;
       state.lastModified = parsed.lastModified || new Date().toISOString();
       state.selection = { key: null, designator: null };
@@ -892,6 +942,25 @@
     if (file) importStateFromFile(file);
     importInput.value = '';
   });
+
+  // ---------------------------------------------------------------------
+  // Assembly variant picker (Critical / NotCritical / ... — only shown
+  // when the project actually has more than one BOM variant; see
+  // discovery.py)
+  // ---------------------------------------------------------------------
+  var variantPicker = document.getElementById('variantPicker');
+  var variantSelect = document.getElementById('variantSelect');
+  var variantNames = Object.keys(DATA.variants);
+  if (variantNames.length > 1) {
+    variantPicker.style.display = '';
+    variantSelect.innerHTML = variantNames.map(function (name) {
+      return '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
+    }).join('');
+    variantSelect.value = state.activeVariant;
+    variantSelect.addEventListener('change', function () {
+      switchVariant(variantSelect.value);
+    });
+  }
 
   // ---------------------------------------------------------------------
   // Init

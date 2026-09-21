@@ -138,7 +138,7 @@ Następnie otwórz `report.html` w przeglądarce.
 | `--unit {mm,inch}` | nie | Domyślne jednostki współrzędnych w pliku pick-and-place, używane tylko gdy nagłówek kolumny sam nie mówi jednostki (np. samo `X`/`Y` zamiast `Center-X(mm)`) — patrz niżej. |
 | `-o, --output PLIK` | nie | Ścieżka wyjściowa (domyślnie `<KATALOG>/report.html`). |
 | `--report-id ID` | nie | Wymuszony klucz `localStorage` (domyślnie wyliczany automatycznie z nazw plików Gerber + zestawu oznaczeń — pozwala to na ponowne wygenerowanie raportu dla tego samego projektu bez utraty zaznaczonych checkboxów). |
-| `--all-layers` | nie | Renderuj też miedź i maskę lutowniczą (domyślnie pomijane, patrz sekcja "Format plików wejściowych"). |
+| `--all-layers` | nie | Renderuj też maskę lutowniczą, wewnętrzną miedź i inne warstwy mechaniczne (domyślnie pomijane, patrz sekcja "Format plików wejściowych"). |
 
 ### Jak działa auto-wykrywanie (i jak rozróżnia BOM od pick-and-place)
 
@@ -155,9 +155,11 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
 - Plik `.txt`, który w ogóle nie wygląda na tabelę z nagłówkiem, jest dodatkowo sprawdzany, czy da
   się go sparsować jako plik wiertła Excellon (Altium często eksportuje wiertła jako `.txt` — ta sama
   nazwa rozszerzenia co pick-and-place) — jeśli tak, trafia do listy plików Gerber, nie do BOM/PnP.
-- Więcej niż jeden plik pasujący do BOM → błąd z listą kandydatów (trzeba wskazać jawnie przez
-  `--bom`); więcej niż jeden plik pick-and-place jest **łączony** (typowy przypadek: oddzielne
-  raporty Top/Bottom z Altium).
+- Więcej niż jeden plik pasujący do BOM → traktowane jako **warianty montażu** (patrz niżej) zamiast
+  błędu, o ile nazwy plików na to pozwalają; w przeciwnym razie trzeba wskazać właściwy przez `--bom`.
+  Więcej niż jeden plik pick-and-place różniący się tylko stroną (Top/Bottom) jest **łączony**
+  (typowy przypadek oddzielnych raportów Top/Bottom z Altium); różniący się czymś innym (np. też
+  warianty) jest dopasowywany do wariantów BOM zamiast łączony w jedno.
 - Jednostki (mm/mil/cal) w pick-and-place są odczytywane z samej nazwy kolumny, gdy ta ją zawiera
   (np. `Center-X(mil)`) — `--unit` jest używany tylko jako domyślna wartość dla kolumn bez podanej
   jednostki w nazwie (np. samo `X`).
@@ -247,6 +249,45 @@ Ponieważ status jest liczony na poziomie części (a nie pojedynczego refdesu �
 próg dla całej grupy: szary = nic, żółty = częściowo/w całości dostarczone, zielony = częściowo/w
 całości zamontowane (jaśniejszy odcień = częściowo, pełny = w całości; zamontowanie ma pierwszeństwo
 przed dostawą w kolorowaniu).
+
+## Warianty montażu (Critical / NotCritical / ... )
+
+Altium (i inne narzędzia) pozwalają zdefiniować **warianty projektu** — różne konfiguracje montażu
+tej samej płytki (np. "Critical" = tylko kluczowe podzespoły na pierwszy montaż, "NotCritical" =
+reszta, "Full"/domyślny = wszystko) — i eksportują osobny plik BOM (a często też osobny
+pick-and-place) dla każdego wariantu. GerbertoHTML wykrywa to automatycznie:
+
+- Jeśli auto-wykrywanie znajdzie **kilka plików wyglądających na BOM** tego samego projektu, zamiast
+  błędu traktuje je jako warianty. Etykieta wariantu to część nazwy pliku, która różni je od siebie
+  (np. `Board.xlsx` / `Board_Critical.xlsx` / `Board_NotCritical.xlsx` → warianty "Podstawowy" /
+  "Critical" / "NotCritical").
+- Analogicznie dla kilku plików pick-and-place, o ile nie wyglądają na zwykły podział Top/Bottom
+  (wtedy nadal są łączone jak dotychczas) — każdy dopasowywany jest do wariantu BOM o tej samej lub
+  podobnej nazwie. Gdy dopasowania po nazwie zabraknie dla dokładnie jednego wariantu BOM i dokładnie
+  jednego pliku pick-and-place, są parowane jako ostatnia deska ratunku; poza tym przypadkiem
+  niesparowany wariant po prostu wymaga ręcznego ustawienia pozycji komponentów w raporcie (jak przy
+  braku pick-and-place w ogóle).
+- W konsoli pojawi się ostrzeżenie z listą wykrytych wariantów i wynikiem dopasowania
+  pick-and-place — warto to sprawdzić, zwłaszcza gdy nazwy wariantów nie są oczywiste (np. osobny
+  "Mechanical BOM" z akcesoriami mechanicznymi, a nie prawdziwy wariant montażu, też może zostać tu
+  wymieniony, jeśli nazwa pliku na to wskazuje).
+
+W wygenerowanym raporcie, jeśli wykryto więcej niż jeden wariant, w sidebarze Assembly pojawia się
+lista rozwijana **„Wariant montażu”**. Przełączenie jej:
+
+- Podmienia listę komponentów, sumy i panel braków na dane właściwe wybranemu wariantowi.
+- Pokazuje na wizualizacji płytki tylko znaczniki komponentów należące do tego wariantu (reszta
+  płytki — obrys, miedź, silkscreen — jest identyczna dla każdego wariantu, bo to wciąż ta sama
+  fizyczna płytka).
+- Śledzi Dostarczono/Zamontowano **osobno dla każdego wariantu** — zaznaczenie czegoś w wariancie
+  "Critical" nie wpływa na postęp w "NotCritical". Ręcznie ustawione pozycje komponentów na płytce są
+  natomiast wspólne dla wszystkich wariantów (to wciąż ten sam fizyczny punkt na płytce).
+- Eksport/import stanu (patrz wyżej) przenosi postęp **wszystkich** wariantów naraz, więc
+  przekazanie pliku stanu innej osobie nie gubi danych niezależnie od tego, który wariant akurat
+  była otwarty.
+
+Gdy wykryto tylko jeden BOM (typowy przypadek), lista wariantów jest ukryta i nic się nie zmienia w
+dotychczasowym działaniu.
 
 ## Architektura i uzasadnienie wyboru narzędzi
 
