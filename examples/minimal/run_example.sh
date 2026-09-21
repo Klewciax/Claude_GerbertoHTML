@@ -10,7 +10,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 
 cd "$SCRIPT_DIR"
-python3 -m pcb_report --gerber outline.gbr copper.gbr --bom bom.csv --pnp pnp.csv -o report.html
+# Auto-wykrywanie: bez podawania nazw plików (patrz README, sekcja "auto-wykrywanie plikow").
+python3 -m pcb_report . -o report.html
 
 echo
 echo "Gotowe: $SCRIPT_DIR/report.html"

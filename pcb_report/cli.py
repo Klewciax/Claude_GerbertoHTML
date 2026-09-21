@@ -38,6 +38,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--bom", metavar="PLIK", default=None, help="Plik BOM (.csv, .xml lub .xlsx). Pominięcie = auto-wykrywanie w KATALOGU.")
     parser.add_argument("--pnp", nargs="+", metavar="PLIK", default=None, help="Plik(i) pick-and-place (.csv) — więcej niż jeden dla oddzielnych raportów Top/Bottom. Pominięcie = auto-wykrywanie w KATALOGU.")
     parser.add_argument("--unit", choices=["mm", "inch"], default="mm", help="Jednostki współrzędnych w pliku pick-and-place (domyślnie mm).")
+    parser.add_argument(
+        "--all-layers",
+        action="store_true",
+        help="Renderuj też miedź i maskę lutowniczą (domyślnie pomijane w widoku Assembly jako nieistotne "
+        "do rozmieszczania komponentów — zostaje obrys, silkscreen, pasta, courtyard i wiertła).",
+    )
     parser.add_argument("-o", "--output", default=None, metavar="PLIK", help="Ścieżka wyjściowego pliku HTML (domyślnie <KATALOG>/report.html).")
     parser.add_argument("--report-id", default=None, help="Wymuś konkretne ID raportu (klucz localStorage) zamiast wyliczonego automatycznie.")
     return parser
@@ -121,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     print(f"Renderowanie {len(gerber_paths)} plik(ów) Gerber...")
-    gerber_result: GerberRenderResult = render_gerber_files(gerber_paths)
+    gerber_result: GerberRenderResult = render_gerber_files(gerber_paths, all_layers=args.all_layers)
     for warning in gerber_result.warnings:
         print(f"  ⚠ {warning}", file=sys.stderr)
 

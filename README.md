@@ -138,6 +138,7 @@ Następnie otwórz `report.html` w przeglądarce.
 | `--unit {mm,inch}` | nie | Domyślne jednostki współrzędnych w pliku pick-and-place, używane tylko gdy nagłówek kolumny sam nie mówi jednostki (np. samo `X`/`Y` zamiast `Center-X(mm)`) — patrz niżej. |
 | `-o, --output PLIK` | nie | Ścieżka wyjściowa (domyślnie `<KATALOG>/report.html`). |
 | `--report-id ID` | nie | Wymuszony klucz `localStorage` (domyślnie wyliczany automatycznie z nazw plików Gerber + zestawu oznaczeń — pozwala to na ponowne wygenerowanie raportu dla tego samego projektu bez utraty zaznaczonych checkboxów). |
+| `--all-layers` | nie | Renderuj też miedź i maskę lutowniczą (domyślnie pomijane, patrz sekcja "Format plików wejściowych"). |
 
 ### Jak działa auto-wykrywanie (i jak rozróżnia BOM od pick-and-place)
 
@@ -177,12 +178,17 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
   konwencji `Mid X`/`Mid Y`, `Center-X`/`Center-Y`, `PosX`/`PosY`, `Ref X`/`Ref Y` (opcjonalnie z
   jednostką w nazwie, np. `Center-X(mil)`), `Rotation`, `Layer`/`Side` (`Top`/`Bottom`). Standardowy
   eksport z KiCad/Altium/Eagle; delimiter (przecinek/tabulator/średnik) wykrywany automatycznie.
-- **Gerber** — dowolny zestaw plików RS-274X (miedź, maska, opis, obrys) i opcjonalnie Excellon
-  (wiertła); typ warstwy (miedź/maska/opis/obrys/wiertła) i strona (góra/dół) są zgadywane po nazwie
-  pliku — rozpoznawane są konwencje KiCad (`*.gtl/.gbl/...` oraz `*-F.Cu.gbr/-B.Cu.gbr/...`) i typowe
-  słowa kluczowe (`top`/`bottom`/`copper`/`mask`/`silk`/`paste`/`outline`/`edge`). Plik o nierozpoznanej
-  nazwie nadal zostanie wyrenderowany (w neutralnym kolorze, pokazany po obu stronach płytki) — patrz
-  "Znane ograniczenia".
+- **Gerber** — dowolny zestaw plików RS-274X (miedź, maska, opis, pasta, courtyard, obrys) i
+  opcjonalnie Excellon (wiertła); typ warstwy i strona (góra/dół) są zgadywane po nazwie pliku —
+  rozpoznawane są konwencje KiCad (`*.gtl/.gbl/...` oraz `*-F.Cu.gbr/-B.Cu.gbr/...`), Altium
+  (warstwy mechaniczne `GM1` = obrys, `GM13`/`GM14` = courtyard góra/dół, `GM15`/`GM16` = fabrykacja)
+  i typowe słowa kluczowe (`top`/`bottom`/`copper`/`mask`/`silk`/`paste`/`outline`/`edge`/`courtyard`).
+  Plik o nierozpoznanej nazwie nadal zostanie wyrenderowany (w neutralnym kolorze, pokazany po obu
+  stronach płytki) — patrz "Znane ograniczenia".
+
+  **Domyślnie warstwy miedzi i maski lutowniczej są pomijane** w widoku Assembly — nie są potrzebne
+  do rozmieszczania komponentów i tylko zaśmiecają widok; zostaje obrys, silkscreen, pasta, courtyard
+  i wiertła. Żeby jednak je pokazać (np. do weryfikacji fabrykacyjnej), dodaj flagę `--all-layers`.
 
 ## Mapowanie komponentów BOM → wizualizacja PCB
 
@@ -237,11 +243,12 @@ przed dostawą w kolorowaniu).
 `gerbonara.excellon.ExcellonFile`, bierze jego geometrię (SVG) i ramkę graniczną (bounding box), po
 czym:
 
-1. Zgaduje typ warstwy (miedź/maska/opis/pasta/obrys/wiertła) i stronę (góra/dół/obie) z nazwy pliku
-   (prosta heurystyka, patrz `_classify_type`/`_classify_side` w kodzie).
-2. Liczy wspólną ramkę graniczną (sumę) wszystkich plików — to staje się `viewBox` całego SVG.
-3. Nakłada wszystkie warstwy dla danej strony na jeden `<g>`, w kolejności miedź → maska → pasta →
-   opis → obrys → wiertła, każdą w osobnym kolorze i przezroczystości.
+1. Zgaduje typ warstwy (miedź/maska/opis/pasta/courtyard/obrys/wiertła) i stronę (góra/dół/obie) z
+   nazwy pliku (prosta heurystyka, patrz `_classify_type`/`_classify_side` w kodzie).
+2. Odfiltrowuje miedź i maskę, chyba że podano `--all-layers` (patrz "Format plików wejściowych").
+3. Liczy wspólną ramkę graniczną (sumę) pozostałych plików — to staje się `viewBox` całego SVG.
+4. Nakłada pozostałe warstwy dla danej strony na jeden `<g>`, w kolejności miedź → maska → pasta →
+   courtyard → opis → obrys → wiertła, każdą w osobnym kolorze i przezroczystości.
 
 Dzięki temu narzędzie renderuje sensowny obraz płytki niezależnie od tego, czy dostaniesz 2 pliki czy
 kompletny zestaw fabrykacyjny — kosztem nieco uproszczonego (nie w pełni fotorealistycznego)

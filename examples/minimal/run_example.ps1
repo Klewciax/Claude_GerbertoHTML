@@ -11,7 +11,8 @@ $env:PYTHONPATH = $repoRoot
 
 Set-Location -Path $scriptDir
 
-python -m pcb_report --gerber outline.gbr copper.gbr --bom bom.csv --pnp pnp.csv -o report.html
+# Auto-wykrywanie: bez podawania nazw plikow (patrz README, sekcja "auto-wykrywanie plikow").
+python -m pcb_report . -o report.html
 
 Write-Host ""
 Write-Host "Gotowe: $scriptDir\report.html" -ForegroundColor Green

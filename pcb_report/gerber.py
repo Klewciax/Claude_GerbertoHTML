@@ -36,7 +36,7 @@ except Exception as _exc:  # pragma: no cover - exercised only when the dependen
     ExcellonFile = GerberFile = None  # type: ignore[assignment]
     _GERBONARA_IMPORT_ERROR = _exc
 
-LayerType = str  # 'copper' | 'mask' | 'silk' | 'paste' | 'outline' | 'drill' | 'unknown'
+LayerType = str  # 'copper' | 'mask' | 'silk' | 'paste' | 'courtyard' | 'outline' | 'drill' | 'unknown'
 Side = str  # 'top' | 'bottom' | 'all'
 
 _COLORS: dict[LayerType, str] = {
@@ -44,6 +44,7 @@ _COLORS: dict[LayerType, str] = {
     "mask": "#1d5f3a",
     "silk": "#f2f2f2",
     "paste": "#9aa0a6",
+    "courtyard": "#5fb8d6",
     "drill": "#1a1a1a",
     "outline": "#f0c000",
     "unknown": "#8fa0b3",
@@ -53,16 +54,27 @@ _OPACITY: dict[LayerType, float] = {
     "mask": 0.5,
     "silk": 0.9,
     "paste": 0.75,
+    "courtyard": 0.8,
     "drill": 1.0,
     "outline": 1.0,
     "unknown": 0.55,
 }
 # Draw order, bottom to top.
-_Z_ORDER: list[LayerType] = ["unknown", "copper", "mask", "paste", "silk", "outline", "drill"]
+_Z_ORDER: list[LayerType] = ["unknown", "copper", "mask", "paste", "courtyard", "silk", "outline", "drill"]
+
+# Layers actually useful for placing/checking components by hand. Copper
+# and solder mask are fab/electrical detail that only clutters an assembly
+# reference view, so they're left out unless --all-layers is passed.
+ASSEMBLY_RELEVANT_TYPES = {"outline", "silk", "paste", "courtyard", "drill", "unknown"}
 
 _TOP_EXTENSIONS = {"gtl", "gts", "gto", "gtp"}
 _BOTTOM_EXTENSIONS = {"gbl", "gbs", "gbo", "gbp"}
 _DRILL_EXTENSIONS = {"drl", "xnc", "tho", "thd", "nc"}
+# Altium mechanical layers: GM1 is conventionally the board outline; GM13/14
+# are top/bottom courtyard, GM15/16 top/bottom assembly (fabrication) —
+# grouped with courtyard here since both serve the same "assembly reference
+# outline" purpose.
+_COURTYARD_MECHANICAL_EXTENSIONS = {"gm13", "gm14", "gm15", "gm16"}
 
 _INNER_G_RE = re.compile(r"<g\s+transform=\"[^\"]*\">(.*)</g>\s*</svg>", re.DOTALL)
 
@@ -74,16 +86,18 @@ def _extension(name: str) -> str:
 def _classify_type(name: str) -> LayerType:
     n = name.lower()
     ext = _extension(n)
-    if ext in ("gtl", "gbl") or re.search(r"[-_.]cu\b", n) or "copper" in n:
-        return "copper"
-    if ext in ("gts", "gbs") or "mask" in n or "resist" in n:
-        return "mask"
+    if ext in ("gko", "gm1") or "outline" in n or "edge" in n or "cuts" in n or "profile" in n:
+        return "outline"
+    if ext in _COURTYARD_MECHANICAL_EXTENSIONS or "courtyard" in n or "crtyd" in n or "assembly" in n or "assy" in n or "fab" in n:
+        return "courtyard"
     if ext in ("gto", "gbo") or "silk" in n:
         return "silk"
     if ext in ("gtp", "gbp") or "paste" in n:
         return "paste"
-    if ext in ("gko", "gm1") or "outline" in n or "edge" in n or "cuts" in n or "profile" in n:
-        return "outline"
+    if ext in ("gts", "gbs") or "mask" in n or "resist" in n:
+        return "mask"
+    if ext in ("gtl", "gbl") or re.search(r"[-_.]cu\b", n) or "copper" in n:
+        return "copper"
     if ext in _DRILL_EXTENSIONS or "drill" in n or "drl" in n:
         return "drill"
     return "unknown"
@@ -217,7 +231,7 @@ def _composite(files: list[_ParsedFile], side: Side) -> Optional[str]:
     return '<g transform="scale(1,-1)">' + "".join(layers) + "</g>"
 
 
-def render_gerber_files(paths: list[str]) -> GerberRenderResult:
+def render_gerber_files(paths: list[str], all_layers: bool = False) -> GerberRenderResult:
     if not paths:
         return GerberRenderResult(warnings=["Nie wskazano żadnych plików Gerber."])
 
@@ -239,6 +253,23 @@ def render_gerber_files(paths: list[str]) -> GerberRenderResult:
 
     if not parsed_files:
         warnings.append("Żaden z wybranych plików nie został rozpoznany jako plik Gerber/Excellon z geometrią.")
+        return GerberRenderResult(warnings=warnings)
+
+    if not all_layers:
+        skipped = [f for f in parsed_files if f.layer_type not in ASSEMBLY_RELEVANT_TYPES]
+        if skipped:
+            warnings.append(
+                "Pominięto w widoku Assembly warstwy miedzi/maski (nieistotne do rozmieszczania komponentów): "
+                + ", ".join(Path(f.path).name for f in skipped)
+                + ". Użyj --all-layers, aby jednak je pokazać."
+            )
+        parsed_files = [f for f in parsed_files if f.layer_type in ASSEMBLY_RELEVANT_TYPES]
+
+    if not parsed_files:
+        warnings.append(
+            "Po odfiltrowaniu warstw miedzi/maski nie zostały żadne pliki do wyrenderowania "
+            "(brak obrysu/silkscreenu/courtyard) — użyj --all-layers albo dodaj plik obrysu płytki."
+        )
         return GerberRenderResult(warnings=warnings)
 
     unknown = [f.path for f in parsed_files if f.layer_type == "unknown"]
