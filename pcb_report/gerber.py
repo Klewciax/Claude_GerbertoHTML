@@ -41,6 +41,7 @@ Side = str  # 'top' | 'bottom' | 'all'
 
 _COLORS: dict[LayerType, str] = {
     "copper": "#c9a06a",
+    "inner_copper": "#8a6b45",
     "mask": "#1d5f3a",
     "silk": "#f2f2f2",
     "paste": "#9aa0a6",
@@ -52,6 +53,7 @@ _COLORS: dict[LayerType, str] = {
 }
 _OPACITY: dict[LayerType, float] = {
     "copper": 0.92,
+    "inner_copper": 0.5,
     "mask": 0.5,
     "silk": 0.9,
     "paste": 0.75,
@@ -62,18 +64,25 @@ _OPACITY: dict[LayerType, float] = {
     "unknown": 0.55,
 }
 # Draw order, bottom to top.
-_Z_ORDER: list[LayerType] = ["unknown", "mechanical", "copper", "mask", "paste", "courtyard", "silk", "outline", "drill"]
+_Z_ORDER: list[LayerType] = [
+    "unknown", "mechanical", "inner_copper", "copper", "mask", "paste", "courtyard", "silk", "outline", "drill",
+]
 
-# Layers actually useful for placing/checking components by hand. Copper
-# and solder mask are fab/electrical detail that only clutters an assembly
-# reference view, so they're left out unless --all-layers is passed.
-# "mechanical" (see _classify_type) is excluded for the same reason: it's a
-# positively-identified Altium GM<n> layer whose specific purpose (fab
-# notes, dimensions, height restrictions, ...) is defined per-project and
-# can't be inferred from the extension. "unknown" — a filename that doesn't
-# match any recognized convention at all — stays included, since it might
-# be someone's unconventionally-named board outline.
-ASSEMBLY_RELEVANT_TYPES = {"outline", "silk", "paste", "courtyard", "drill", "unknown"}
+# Layers actually useful for placing/checking components by hand. The outer
+# copper layer (top/bottom) is included: its pads are literally the
+# component footprints, which is the clearest visual cue for "where does
+# this part go" — confirmed by comparing against a manual KiCad layer
+# selection. Only *inner* (buried) copper is left out, since it's not
+# visible on either surface and irrelevant to placement; solder mask is
+# also left out (just a tint, adds nothing here). "mechanical" (see
+# _classify_type) is excluded too: it's a positively-identified Altium
+# GM<n> layer whose specific purpose (fab notes, dimensions, height
+# restrictions, ...) is defined per-project and can't be inferred from the
+# extension. "unknown" — a filename that doesn't match any recognized
+# convention at all — stays included, since it might be someone's
+# unconventionally-named board outline. All of the above are still
+# available via --all-layers.
+ASSEMBLY_RELEVANT_TYPES = {"outline", "silk", "paste", "copper", "courtyard", "drill", "unknown"}
 
 _TOP_EXTENSIONS = {"gtl", "gts", "gto", "gtp"}
 _BOTTOM_EXTENSIONS = {"gbl", "gbs", "gbo", "gbp"}
@@ -86,9 +95,13 @@ _DRILL_EXTENSIONS = {"drl", "xnc", "tho", "thd", "nc"}
 # unknown, project-specific purpose — see "mechanical" in _classify_type.
 _COURTYARD_MECHANICAL_EXTENSIONS = {"gm13", "gm14", "gm15", "gm16"}
 _GENERIC_MECHANICAL_RE = re.compile(r"gm\d+")
-# Bare "G<n>" (no "M") is Altium's convention for internal copper signal
-# layers (G1, G2, ...), distinct from "GM<n>" mechanical layers above.
+# Bare "G<n>" (no "M") is Altium's convention for internal (buried) copper
+# signal layers (G1, G2, ...), distinct from outer .GTL/.GBL and from
+# "GM<n>" mechanical layers above.
 _INNER_COPPER_RE = re.compile(r"g\d+")
+# KiCad's convention for an inner copper layer, e.g. "board-In1-Cu.gbr" /
+# "board-In2_Cu.gbr" — as opposed to "-F.Cu"/"-B.Cu" for the outer layers.
+_KICAD_INNER_COPPER_RE = re.compile(r"in\d+[-_.]?cu")
 
 _INNER_G_RE = re.compile(r"<g\s+transform=\"[^\"]*\">(.*)</g>\s*</svg>", re.DOTALL)
 
@@ -110,12 +123,9 @@ def _classify_type(name: str) -> LayerType:
         return "paste"
     if ext in ("gts", "gbs") or "mask" in n or "resist" in n:
         return "mask"
-    if (
-        ext in ("gtl", "gbl")
-        or _INNER_COPPER_RE.fullmatch(ext)
-        or re.search(r"[-_.]cu\b", n)
-        or "copper" in n
-    ):
+    if _INNER_COPPER_RE.fullmatch(ext) or _KICAD_INNER_COPPER_RE.search(n) or "inner" in n:
+        return "inner_copper"
+    if ext in ("gtl", "gbl") or re.search(r"[-_.]cu\b", n) or "copper" in n:
         return "copper"
     if ext in _DRILL_EXTENSIONS or "drill" in n or "drl" in n:
         return "drill"
@@ -160,12 +170,20 @@ def _classify_from_attrs(file_attrs: dict) -> Optional[tuple[LayerType, Side]]:
     if layer_type is None:
         return None
     side: Side = "all"
+    is_inner = False
     for token in values[1:]:
         t = str(token).strip().lower()
         if t == "top":
             side = "top"
         elif t in ("bot", "bottom"):
             side = "bottom"
+        elif t in ("inr", "inner"):
+            is_inner = True
+    if layer_type == "copper" and is_inner:
+        # A buried signal layer (Gerber X2's "Inr" token) — not visible on
+        # either surface, so it's a different, always-excluded-by-default
+        # category from the outer copper layer (see ASSEMBLY_RELEVANT_TYPES).
+        layer_type = "inner_copper"
     return layer_type, side
 
 
@@ -472,11 +490,19 @@ def render_gerber_files(
         return GerberRenderResult(warnings=warnings)
 
     if not all_layers:
-        skipped_copper_mask = [f for f in parsed_files if f.layer_type in ("copper", "mask")]
-        if skipped_copper_mask:
+        skipped_mask = [f for f in parsed_files if f.layer_type == "mask"]
+        if skipped_mask:
             warnings.append(
-                "Pominięto w widoku Assembly warstwy miedzi/maski (nieistotne do rozmieszczania komponentów): "
-                + ", ".join(Path(f.path).name for f in skipped_copper_mask)
+                "Pominięto warstwę maski lutowniczej (nieistotna do rozmieszczania komponentów — widoczna "
+                "miedź/pady wystarczą): "
+                + ", ".join(Path(f.path).name for f in skipped_mask)
+                + ". Użyj --all-layers, aby jednak ją pokazać."
+            )
+        skipped_inner_copper = [f for f in parsed_files if f.layer_type == "inner_copper"]
+        if skipped_inner_copper:
+            warnings.append(
+                "Pominięto wewnętrzne (niewidoczne z zewnątrz) warstwy miedzi: "
+                + ", ".join(Path(f.path).name for f in skipped_inner_copper)
                 + ". Użyj --all-layers, aby jednak je pokazać."
             )
         skipped_mechanical = [f for f in parsed_files if f.layer_type == "mechanical"]

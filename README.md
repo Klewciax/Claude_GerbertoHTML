@@ -165,12 +165,19 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
 ## Format plików wejściowych
 
 - **BOM (CSV lub Excel `.xlsx`)** — nagłówki (rozpoznawane bez rozróżniania wielkości liter):
-  `Designator`/`Reference`/`RefDes`, `Value`/`Comment` (Altium nazywa to pole "Comment"), `Footprint`/
-  `Package`, `Description`, `Manufacturer`, `MPN`, `Qty`. Dla `.xlsx` brany jest pierwszy arkusz,
-  pierwszy wiersz jako nagłówek. Pole z oznaczeniami może zawierać kilka wartości naraz, np.
-  `"R1, R2, R5"` — typowe dla BOM-ów grupujących identyczne części w jednym wierszu. Kliknięcie
-  takiego wiersza w raporcie podświetla **wszystkie** wymienione oznaczenia jednocześnie na
-  wizualizacji płytki.
+  `Designator`/`Reference`/`RefDes`/`Ref Des` (oraz podobne warianty z kropkami/podkreślnikami),
+  `Value`/`Comment` (Altium nazywa to pole "Comment"), `Footprint`/`Package`, `Description`,
+  `Manufacturer`, `Qty`. Kolumna z numerem katalogowym producenta jest rozpoznawana szeroko —
+  `MPN`, `MPN1`/`MPN2` (wiele zatwierdzonych producentów), `Part Number`, `Manufacturer Part Number`,
+  `Mfr Part No.`, `P/N`, `Manufacturer P/N` itp. Dla `.xlsx` **przeszukiwane są wszystkie arkusze**
+  (nie tylko ten, który był aktywny przy zapisie pliku) i pierwsze ~20 wierszy każdego z nich, aż
+  znajdzie się wiersz z kolumną oznaczeń — typowe firmowe szablony BOM mają przed właściwą tabelą
+  nagłówek/blok rewizji, więc to nie zawsze wiersz 1 arkusza 1. Jeśli w projekcie jest kilka plików
+  wyglądających na BOM (np. `BOM.xlsx`, `BOM_Critical.xlsx`, `BOM_NotCritical.xlsx`), auto-wykrywanie
+  zgłosi to jako niejednoznaczność i poprosi o wskazanie właściwego przez `--bom`. Pole z oznaczeniami
+  może zawierać kilka wartości naraz, np. `"R1, R2, R5"` — typowe dla BOM-ów grupujących identyczne
+  części w jednym wierszu. Kliknięcie takiego wiersza w raporcie podświetla **wszystkie** wymienione
+  oznaczenia jednocześnie na wizualizacji płytki.
 - **BOM (XML)** — parser jest heurystyczny: szuka węzłów zawierających pole typu Designator/Reference,
   ponieważ format XML BOM nie jest ustandaryzowany między systemami CAD. Dla większej niezawodności
   zalecany jest eksport do CSV.
@@ -183,18 +190,23 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
   `%TF.FileFunction,...*%` (domyślne w nowszym eksporcie z Altium/KiCad), typ warstwy i strona są
   odczytywane właśnie z niego — nazwa pliku nie ma wtedy znaczenia. W przeciwnym razie (starszy,
   przed-X2 RS-274X, częsty w starszych eksportach z Altium) zgadywane są z nazwy pliku: rozpoznawane
-  są konwencje KiCad (`*.gtl/.gbl/...` oraz `*-F.Cu.gbr/-B.Cu.gbr/...`), Altium (`.G1`/`.G2`/... =
-  wewnętrzne warstwy miedzi, `.GKO`/`.GML`/`GM1` = obrys, `GM13`/`GM14` = courtyard góra/dół,
-  `GM15`/`GM16` = fabrykacja, pozostałe `.GM<numer>` = inna warstwa mechaniczna o nieznanym z nazwy
-  przeznaczeniu) i typowe słowa kluczowe (`top`/`bottom`/`copper`/`mask`/`silk`/`paste`/`outline`/
-  `edge`/`courtyard`). Plik o nierozpoznanej w ogóle nazwie nadal zostanie wyrenderowany (w
-  neutralnym kolorze, pokazany po obu stronach płytki) — patrz "Znane ograniczenia".
+  są konwencje KiCad (`*.gtl/.gbl/...` oraz `*-F.Cu.gbr/-B.Cu.gbr/...`, `*-In1.Cu.gbr/...` dla warstw
+  wewnętrznych), Altium (`.G1`/`.G2`/... = wewnętrzne warstwy miedzi, `.GKO`/`.GML`/`GM1` = obrys,
+  `GM13`/`GM14` = courtyard góra/dół, `GM15`/`GM16` = fabrykacja, pozostałe `.GM<numer>` = inna
+  warstwa mechaniczna o nieznanym z nazwy przeznaczeniu) i typowe słowa kluczowe (`top`/`bottom`/
+  `copper`/`mask`/`silk`/`paste`/`outline`/`edge`/`courtyard`/`inner`). Plik o nierozpoznanej w
+  ogóle nazwie nadal zostanie wyrenderowany (w neutralnym kolorze, pokazany po obu stronach płytki)
+  — patrz "Znane ograniczenia".
 
-  **Domyślnie warstwy miedzi, maski lutowniczej i innych nierozpoznanych warstw mechanicznych Altium
-  (`.GM<numer>` poza obrysem/courtyardem) są pomijane** w widoku Assembly — nie są potrzebne do
-  rozmieszczania komponentów, a w praktycznych projektach Altium bywa ich dziesiątki (wymiary, notatki
-  fabrykacyjne, strefy wysokości...) i tylko zaśmiecają widok; zostaje obrys, silkscreen, pasta,
-  courtyard i wiertła. Żeby jednak je pokazać (np. do weryfikacji fabrykacyjnej), dodaj flagę
+  **Domyślnie w widoku Assembly widoczne są: obrys, miedź zewnętrzna (góra/dół), silkscreen, pasta,
+  courtyard i wiertła.** Miedź zewnętrzna jest celowo pokazywana — to na niej leżą pola lutownicze
+  (pady) komponentów, czyli najbardziej czytelna wskazówka "gdzie fizycznie jest ten element"
+  (potwierdzone porównaniem z ręcznym doborem warstw w przeglądarce Gerberów KiCada). Pomijane są
+  natomiast: **maska lutownicza** (tylko przebarwienie, nic nie wnosi), **wewnętrzne (zagrzebane)
+  warstwy miedzi** (niewidoczne z zewnątrz, nieistotne przy montażu) oraz **inne, nierozpoznane
+  warstwy mechaniczne Altium** (`.GM<numer>` poza obrysem/courtyardem) — w praktycznych projektach
+  Altium bywa ich dziesiątki (wymiary, notatki fabrykacyjne, strefy wysokości...) i tylko zaśmiecają
+  widok. Żeby jednak pokazać wszystko (np. do weryfikacji fabrykacyjnej), dodaj flagę
   `--all-layers`.
 
 ## Mapowanie komponentów BOM → wizualizacja PCB

@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from .bom import DESIGNATOR_KEYS, _normalize_key
+from .bom import _compact, _normalize_key, iter_xlsx_header_candidates, looks_like_designator_header
 
 GERBER_EXTENSIONS = {
     # Generic / KiCad (layer identity comes from the filename, not the extension)
@@ -46,10 +46,6 @@ _EXCEL_EXTENSIONS = {"xlsx"}
 
 _X_PATTERN = re.compile(r"^(mid|pos|center|ref|location)?x(location)?(mm|mil|in|inch)?$")
 _Y_PATTERN = re.compile(r"^(mid|pos|center|ref|location)?y(location)?(mm|mil|in|inch)?$")
-
-
-def _compact(key: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", key.lower())
 
 
 def is_gerber_extension(ext: str) -> bool:
@@ -84,21 +80,6 @@ def _read_header_row(path: Path) -> Optional[list[str]]:
     return [c.strip() for c in row]
 
 
-def _read_xlsx_header_row(path: Path) -> Optional[list[str]]:
-    try:
-        import openpyxl
-    except ImportError:
-        return None
-    try:
-        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-        row = next(wb.active.iter_rows(values_only=True), None)
-    except Exception:
-        return None
-    if not row:
-        return None
-    return [str(c).strip() for c in row if c is not None]
-
-
 def _looks_like_excellon_drill(path: Path) -> bool:
     try:
         from gerbonara.excellon import ExcellonFile
@@ -116,8 +97,7 @@ def classify_tabular_header(header: list[str]) -> str:
     if has_x and has_y:
         return "pnp"
 
-    normalized_keys = {_normalize_key(h) for h in header}
-    if normalized_keys & DESIGNATOR_KEYS:
+    if looks_like_designator_header(header):
         return "bom"
     return "unknown"
 
@@ -152,10 +132,15 @@ def discover_project_files(project_dir: Path) -> DiscoveryResult:
             continue
 
         if ext in _EXCEL_EXTENSIONS:
-            header = _read_xlsx_header_row(path)
-            kind = classify_tabular_header(header) if header else "unknown"
+            kind = "unknown"
+            for _, _, header in iter_xlsx_header_candidates(path):
+                kind = classify_tabular_header(header)
+                if kind != "unknown":
+                    break
             if kind == "bom":
                 bom_candidates.append(path)
+            elif kind == "pnp":
+                pnp_candidates.append(path)
             else:
                 unresolved.append(path)
             continue
