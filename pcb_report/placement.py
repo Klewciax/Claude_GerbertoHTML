@@ -103,40 +103,70 @@ def _looks_like_placement_header(fields: list[str]) -> bool:
     return has_designator and has_x and has_y
 
 
-def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], list[str]]:
-    warnings: list[str] = []
+def _split_line(line: str, mode: tuple) -> Optional[list[str]]:
+    """Splits one data/header line per a mode from _detect_header: either
+    ('delim', <char>) for a real delimiter, or ('whitespace',) for KiCad's
+    ASCII position-file export, which pads columns with a run of spaces
+    instead of using one."""
+    if mode[0] == "delim":
+        row = next(csv.reader(io.StringIO(line), delimiter=mode[1]), None)
+        return [c.strip() for c in row] if row else None
+    parts = line.split()
+    return parts or None
 
-    lines = [line for line in text.splitlines() if not line.strip().startswith("#")]
+
+def _detect_header(lines: list[str]) -> Optional[tuple[int, list[str], tuple]]:
+    """Scans the first _HEADER_SCAN_LINES lines for the pick-and-place
+    header, trying each as both a delimited row and a whitespace-split row.
+    KiCad's own ASCII export prefixes its header with "#" (e.g.
+    "# Ref  Val  Package  PosX  PosY  Rot  Side") and pads columns with
+    spaces rather than a real delimiter, so a leading "#" is stripped
+    before parsing instead of treating every such line as a comment to
+    discard outright — most still won't look like a real header once
+    parsed (e.g. KiCad's "### Footprint positions - created on ...*%"
+    banner lines) and are simply skipped like before.
+    """
+    for i, raw_line in enumerate(lines[:_HEADER_SCAN_LINES]):
+        line = raw_line.rstrip("\r\n")
+        candidate = line.lstrip("#").strip()
+        if not candidate:
+            continue
+        delimiter = _sniff_delimiter(line) if any(c in line for c in ",;\t") else None
+        if delimiter is not None:
+            fields = _split_line(candidate, ("delim", delimiter))
+            mode = ("delim", delimiter)
+        else:
+            fields = _split_line(candidate, ("whitespace",))
+            mode = ("whitespace",)
+        if fields and len(fields) >= 2 and _looks_like_placement_header(fields):
+            return i, fields, mode
+    return None
+
+
+def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], list[str]]:
+    lines = text.splitlines()
     if not lines:
         return [], ["Plik jest pusty."]
 
-    header_index = None
-    delimiter = None
-    for i, line in enumerate(lines[:_HEADER_SCAN_LINES]):
-        if not line.strip():
-            continue
-        d = _sniff_delimiter(line)
-        row = next(csv.reader(io.StringIO(line), delimiter=d), None)
-        if not row or len(row) < 2:
-            continue
-        if _looks_like_placement_header([c.strip() for c in row]):
-            header_index, delimiter = i, d
-            break
-
-    if header_index is None:
+    detected = _detect_header(lines)
+    if detected is None:
         return [], [
             "Nie znaleziono wiersza nagłówka z oznaczeniem (Designator) i pozycją X/Y "
             f"(przeszukano pierwsze {_HEADER_SCAN_LINES} niepustych linii pliku). "
             "Sprawdź format pliku pick-and-place."
         ]
+    header_index, header_fields, mode = detected
 
-    reader = csv.DictReader(io.StringIO("\n".join(lines[header_index:])), delimiter=delimiter)
-    if reader.fieldnames is None:
-        return [], ["Plik jest pusty lub nie zawiera nagłówka."]
-
+    warnings: list[str] = []
     placements: list[Placement] = []
-    for row in reader:
-        clean_row = {(k or "").strip(): (v or "").strip() for k, v in row.items() if k is not None}
+    for raw_line in lines[header_index + 1 :]:
+        line = raw_line.rstrip("\r\n")
+        if not line.strip() or line.strip().startswith("#"):
+            continue  # blank line, or a trailing comment/footer (e.g. KiCad's "## End")
+        values = _split_line(line, mode)
+        if not values:
+            continue
+        clean_row = {header_fields[i]: (values[i].strip() if i < len(values) else "") for i in range(len(header_fields))}
         designator = _find_field(clean_row, DESIGNATOR_KEYS)
         x_raw, x_unit = _find_axis_field(clean_row, _X_PATTERN)
         y_raw, y_unit = _find_axis_field(clean_row, _Y_PATTERN)

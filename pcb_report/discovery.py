@@ -62,13 +62,17 @@ def _iter_text_header_candidates(path: Path, max_lines: int = _HEADER_SCAN_LINES
     (and some BOM CSV exports) start with a title/date banner before the
     actual column header line, so — same issue as the xlsx banner-row case
     above — several lines are offered as candidates rather than assuming
-    line 1 is the header."""
+    line 1 is the header. A leading "#" is stripped before parsing rather
+    than treating every such line as a comment to discard outright, since
+    KiCad's own ASCII position-file export prefixes its header line with
+    one ("# Ref  Val  Package  PosX  PosY  Rot  Side") — other, genuinely
+    non-header "#" lines (its date/unit banner) just won't parse into
+    anything recognizable and are skipped same as before.
+    """
     try:
         with open(path, "r", encoding="utf-8-sig", errors="ignore") as f:
             lines = []
             for line in f:
-                if line.strip().startswith("#"):
-                    continue
                 lines.append(line)
                 if len(lines) >= max_lines:
                     break
@@ -77,19 +81,24 @@ def _iter_text_header_candidates(path: Path, max_lines: int = _HEADER_SCAN_LINES
 
     for line in lines:
         line = line.rstrip("\r\n")
-        if not line.strip():
+        candidate = line.lstrip("#").strip()
+        if not candidate:
             continue
-        try:
-            dialect = csv.Sniffer().sniff(line, delimiters=",;\t")
-            delimiter = dialect.delimiter
-        except csv.Error:
-            delimiter = "," if "," in line else "\t" if "\t" in line else ";" if ";" in line else None
-        if delimiter is None:
-            continue
-        row = next(csv.reader(io.StringIO(line), delimiter=delimiter), None)
-        if not row or len(row) < 2:
-            continue
-        yield [c.strip() for c in row]
+        delimiter = None
+        if any(c in line for c in ",;\t"):
+            try:
+                delimiter = csv.Sniffer().sniff(line, delimiters=",;\t").delimiter
+            except csv.Error:
+                delimiter = "," if "," in line else "\t" if "\t" in line else ";"
+        if delimiter is not None:
+            row = next(csv.reader(io.StringIO(candidate), delimiter=delimiter), None)
+            fields = [c.strip() for c in row] if row else None
+        else:
+            # No conventional delimiter -- KiCad pads columns with a run of
+            # spaces instead of using one.
+            fields = candidate.split() or None
+        if fields and len(fields) >= 2:
+            yield fields
 
 
 def _looks_like_excellon_drill(path: Path) -> bool:
