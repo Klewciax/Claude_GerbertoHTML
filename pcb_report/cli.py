@@ -44,9 +44,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--all-layers",
         action="store_true",
-        help="Renderuj też maskę lutowniczą, wewnętrzne warstwy miedzi i inne nierozpoznane warstwy "
-        "mechaniczne Altium (domyślnie pomijane w widoku Assembly jako nieistotne do rozmieszczania "
-        "komponentów — zostaje obrys, miedź zewnętrzna, silkscreen, pasta, courtyard i wiertła).",
+        help="Zaznacz domyślnie WSZYSTKIE warstwy (w tym maskę, miedź wewnętrzną i inne warstwy "
+        "mechaniczne) w panelu 'Warstwy' raportu, zamiast tylko obrysu/miedzi zewnętrznej/silkscreenu/"
+        "pasty/courtyardu/wierteł. Każdą warstwę i tak można dowolnie włączyć/wyłączyć bezpośrednio "
+        "w raporcie niezależnie od tej flagi.",
     )
     parser.add_argument("-o", "--output", default=None, metavar="PLIK", help="Ścieżka wyjściowego pliku HTML (domyślnie <KATALOG>/report.html).")
     parser.add_argument("--report-id", default=None, help="Wymuś konkretne ID raportu (klucz localStorage) zamiast wyliczonego automatycznie.")

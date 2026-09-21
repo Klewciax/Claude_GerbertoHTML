@@ -25,7 +25,7 @@ import warnings as _py_warnings
 from pathlib import Path
 from typing import Optional
 
-from .models import GerberRenderResult, Placement, ViewBox
+from .models import GerberLayer, GerberRenderResult, Placement, ViewBox
 
 try:
     from gerbonara.excellon import ExcellonFile
@@ -446,19 +446,26 @@ def match_component_shapes(
     return matches
 
 
-def _composite(files: list[_ParsedFile], side: Side) -> Optional[str]:
-    included = [f for f in files if f.side in (side, "all")]
-    if not included:
-        return None
-    included.sort(key=lambda f: _Z_ORDER.index(f.layer_type) if f.layer_type in _Z_ORDER else 0)
-
+def _build_layers(files: list[_ParsedFile], all_layers: bool) -> list[GerberLayer]:
+    """One GerberLayer per input file, in draw (z-)order, each independently
+    shown/hidden client-side — see GerberLayer's docstring for why this
+    isn't pre-filtered/merged server-side any more."""
+    ordered = sorted(files, key=lambda f: _Z_ORDER.index(f.layer_type) if f.layer_type in _Z_ORDER else 0)
     layers = []
-    for f in included:
+    for f in ordered:
         color = _COLORS.get(f.layer_type, _COLORS["unknown"])
         opacity = _OPACITY.get(f.layer_type, _OPACITY["unknown"])
-        layers.append(f'<g style="color:{color}" opacity="{opacity}">{f.body}</g>')
-
-    return '<g transform="scale(1,-1)">' + "".join(layers) + "</g>"
+        svg = f'<g transform="scale(1,-1)"><g style="color:{color}" opacity="{opacity}">{f.body}</g></g>'
+        layers.append(
+            GerberLayer(
+                name=Path(f.path).name,
+                layer_type=f.layer_type,
+                side=f.side,
+                svg=svg,
+                default_visible=all_layers or f.layer_type in ASSEMBLY_RELEVANT_TYPES,
+            )
+        )
+    return layers
 
 
 def render_gerber_files(
@@ -489,38 +496,38 @@ def render_gerber_files(
         warnings.append("Żaden z wybranych plików nie został rozpoznany jako plik Gerber/Excellon z geometrią.")
         return GerberRenderResult(warnings=warnings)
 
+    default_visible_files = parsed_files if all_layers else [f for f in parsed_files if f.layer_type in ASSEMBLY_RELEVANT_TYPES]
+
     if not all_layers:
         skipped_mask = [f for f in parsed_files if f.layer_type == "mask"]
         if skipped_mask:
             warnings.append(
-                "Pominięto warstwę maski lutowniczej (nieistotna do rozmieszczania komponentów — widoczna "
-                "miedź/pady wystarczą): "
+                "Domyślnie ukryto warstwę maski lutowniczej (nieistotna do rozmieszczania komponentów — "
+                "widoczna miedź/pady wystarczą): "
                 + ", ".join(Path(f.path).name for f in skipped_mask)
-                + ". Użyj --all-layers, aby jednak ją pokazać."
+                + ". Można ją włączyć w panelu warstw w raporcie."
             )
         skipped_inner_copper = [f for f in parsed_files if f.layer_type == "inner_copper"]
         if skipped_inner_copper:
             warnings.append(
-                "Pominięto wewnętrzne (niewidoczne z zewnątrz) warstwy miedzi: "
+                "Domyślnie ukryto wewnętrzne (niewidoczne z zewnątrz) warstwy miedzi: "
                 + ", ".join(Path(f.path).name for f in skipped_inner_copper)
-                + ". Użyj --all-layers, aby jednak je pokazać."
+                + ". Można je włączyć w panelu warstw w raporcie."
             )
         skipped_mechanical = [f for f in parsed_files if f.layer_type == "mechanical"]
         if skipped_mechanical:
             warnings.append(
-                "Pominięto inne warstwy mechaniczne Altium (przeznaczenie zależy od konkretnego projektu — "
-                "wymiary, notatki fabrykacyjne itp.): "
+                "Domyślnie ukryto inne warstwy mechaniczne Altium (przeznaczenie zależy od konkretnego "
+                "projektu — wymiary, notatki fabrykacyjne itp.): "
                 + ", ".join(Path(f.path).name for f in skipped_mechanical)
-                + ". Użyj --all-layers, aby jednak je pokazać."
+                + ". Można je włączyć w panelu warstw w raporcie."
             )
-        parsed_files = [f for f in parsed_files if f.layer_type in ASSEMBLY_RELEVANT_TYPES]
 
-    if not parsed_files:
+    if not default_visible_files:
         warnings.append(
-            "Po odfiltrowaniu warstw miedzi/maski nie zostały żadne pliki do wyrenderowania "
-            "(brak obrysu/silkscreenu/courtyard) — użyj --all-layers albo dodaj plik obrysu płytki."
+            "Żadna z domyślnie widocznych warstw (obrys/silkscreen/courtyard/miedź) nie została "
+            "znaleziona — płytka będzie pusta, dopóki nie włączysz odpowiednich warstw w panelu po lewej."
         )
-        return GerberRenderResult(warnings=warnings)
 
     unknown = [f.path for f in parsed_files if f.layer_type == "unknown"]
     if unknown:
@@ -530,14 +537,11 @@ def render_gerber_files(
             + " — plik(i) wyrenderowano w neutralnym kolorze na obu stronach płytki."
         )
 
-    min_x, min_y, max_x, max_y = _union_bbox(parsed_files)
+    bbox_source = default_visible_files or parsed_files
+    min_x, min_y, max_x, max_y = _union_bbox(bbox_source)
     view_box = ViewBox(x=min_x, y=-max_y, width=max_x - min_x, height=max_y - min_y)
 
-    top_svg = _composite(parsed_files, "top")
-    bottom_svg = _composite(parsed_files, "bottom")
-
-    if not top_svg and not bottom_svg:
-        warnings.append("Renderowanie nie zwróciło żadnej grafiki dla żadnej ze stron płytki.")
+    layers = _build_layers(parsed_files, all_layers)
 
     component_shapes: dict[str, str] = {}
     if placements:
@@ -547,8 +551,7 @@ def render_gerber_files(
             warnings.append(f"Nie udało się dopasować realnych obrysów komponentów, użyto znaczników zastępczych: {exc}")
 
     return GerberRenderResult(
-        top_svg=top_svg,
-        bottom_svg=bottom_svg,
+        layers=layers,
         view_box=view_box,
         warnings=warnings,
         component_shapes=component_shapes,

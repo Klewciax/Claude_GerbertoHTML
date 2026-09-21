@@ -88,7 +88,7 @@
   // Persisted state (localStorage) merged on top of the generated data
   // ---------------------------------------------------------------------
   function defaultPersisted() {
-    return { manualPlacements: {}, reworks: [], samples: [], variantProgress: {}, groupByPart: true, activeVariant: null, lastModified: null };
+    return { manualPlacements: {}, reworks: [], samples: [], variantProgress: {}, groupByPart: true, activeVariant: null, layerVisibility: {}, lastModified: null };
   }
 
   function loadPersisted() {
@@ -110,6 +110,7 @@
         variantProgress: variantProgress,
         groupByPart: parsed.groupByPart != null ? parsed.groupByPart : true,
         activeVariant: parsed.activeVariant || null,
+        layerVisibility: parsed.layerVisibility || {},
         lastModified: parsed.lastModified || null,
       };
     } catch (e) {
@@ -138,6 +139,7 @@
       variantProgress: state.variantProgress,
       groupByPart: state.groupByPart,
       activeVariant: state.activeVariant,
+      layerVisibility: state.layerVisibility,
       lastModified: state.lastModified,
     };
   }
@@ -166,6 +168,7 @@
     samples: persisted.samples,
     variantProgress: persisted.variantProgress,
     groupByPart: persisted.groupByPart,
+    layerVisibility: persisted.layerVisibility,
     lastModified: persisted.lastModified,
   };
   rebuildPartData();
@@ -600,17 +603,95 @@
     return g;
   }
 
+  // ---------------------------------------------------------------------
+  // Layer visibility panel — layer-type classification is a best-effort
+  // heuristic (filename-based, or the Gerber X2 FileFunction attribute
+  // when present) and real projects regularly have layers it gets wrong,
+  // or that are only occasionally useful (fab verification), so every
+  // parsed Gerber/Excellon file is shown here individually and can be
+  // toggled directly instead of needing the tool re-run with different
+  // flags.
+  // ---------------------------------------------------------------------
+  var LAYER_TYPE_LABELS = {
+    copper: 'Miedź', inner_copper: 'Miedź wewnętrzna', mask: 'Maska lutownicza',
+    silk: 'Opis (silkscreen)', paste: 'Pasta', courtyard: 'Courtyard', drill: 'Wiertła',
+    outline: 'Obrys', mechanical: 'Mechaniczna (inna)', unknown: 'Nierozpoznana',
+  };
+  var LAYER_TYPE_COLORS = {
+    copper: '#c9a06a', inner_copper: '#8a6b45', mask: '#1d5f3a', silk: '#f2f2f2',
+    paste: '#9aa0a6', courtyard: '#5fb8d6', drill: '#1a1a1a', outline: '#f0c000',
+    mechanical: '#b46fc9', unknown: '#8fa0b3',
+  };
+  var SIDE_LABELS = { top: 'góra', bottom: 'dół', all: 'obie strony' };
+
+  function isLayerVisible(layer) {
+    var v = state.layerVisibility[layer.name];
+    return v == null ? layer.defaultVisible : v;
+  }
+
+  function buildGerberSvg(side) {
+    return (DATA.gerberLayers || [])
+      .filter(function (l) { return (l.side === side || l.side === 'all') && isLayerVisible(l); })
+      .map(function (l) { return l.svg; })
+      .join('');
+  }
+
+  var layerPanel = document.getElementById('layerPanel');
+  var layerPanelList = document.getElementById('layerPanelList');
+  var layerPanelToggleBtn = document.getElementById('layerPanelToggleBtn');
+  var layerPanelCloseBtn = document.getElementById('layerPanelCloseBtn');
+
+  function renderLayerPanel() {
+    var layers = DATA.gerberLayers || [];
+    if (layers.length === 0) {
+      layerPanelList.innerHTML = '<p class="layer-panel__empty">Brak wczytanych plików Gerber.</p>';
+      return;
+    }
+    layerPanelList.innerHTML = layers.map(function (l) {
+      var checked = isLayerVisible(l) ? 'checked' : '';
+      var typeLabel = LAYER_TYPE_LABELS[l.type] || l.type;
+      var sideLabel = SIDE_LABELS[l.side] || l.side;
+      var color = LAYER_TYPE_COLORS[l.type] || LAYER_TYPE_COLORS.unknown;
+      return (
+        '<label class="layer-panel__row">' +
+          '<input type="checkbox" data-layer="' + escapeHtml(l.name) + '" ' + checked + ' />' +
+          '<span class="layer-panel__swatch" style="background:' + color + '"></span>' +
+          '<span class="layer-panel__info">' +
+            '<span class="layer-panel__name" title="' + escapeHtml(l.name) + '">' + escapeHtml(l.name) + '</span>' +
+            '<span class="layer-panel__meta">' + escapeHtml(typeLabel) + ' · ' + escapeHtml(sideLabel) + '</span>' +
+          '</span>' +
+        '</label>'
+      );
+    }).join('');
+  }
+
+  layerPanelList.addEventListener('change', function (e) {
+    var input = e.target.closest('input[data-layer]');
+    if (!input) return;
+    state.layerVisibility[input.dataset.layer] = input.checked;
+    renderBoard();
+    persist();
+  });
+
+  layerPanelToggleBtn.addEventListener('click', function () {
+    var isOpen = layerPanel.style.display !== 'none';
+    layerPanel.style.display = isOpen ? 'none' : 'block';
+  });
+  layerPanelCloseBtn.addEventListener('click', function () {
+    layerPanel.style.display = 'none';
+  });
+
   function renderBoard() {
     var vb = getActiveViewBox();
-    var svgInner = state.activeSide === 'top' ? DATA.topSvgInner : DATA.bottomSvgInner;
 
     stage.innerHTML = '';
-    if (!svgInner || !vb) {
+    if (!vb) {
       currentSvg = null;
       emptyNotice.style.display = 'flex';
       return;
     }
     emptyNotice.style.display = 'none';
+    var svgInner = buildGerberSvg(state.activeSide);
 
     var svgNs = 'http://www.w3.org/2000/svg';
     var svg = document.createElementNS(svgNs, 'svg');
@@ -877,6 +958,7 @@
     renderComponentList();
     updateSummary();
     renderBoard();
+    renderLayerPanel();
     renderShortagePanel();
     renderReworkPool();
     renderSamples();
@@ -919,6 +1001,7 @@
       }
       state.variantProgress = importedVariantProgress;
       state.groupByPart = parsed.groupByPart != null ? parsed.groupByPart : true;
+      state.layerVisibility = parsed.layerVisibility || {};
       state.lastModified = parsed.lastModified || new Date().toISOString();
       state.selection = { key: null, designator: null };
       state.mappingDesignator = null;
@@ -970,6 +1053,7 @@
   renderComponentList();
   updateSummary();
   renderBoard();
+  renderLayerPanel();
   updateMappingHint();
   renderShortagePanel();
   renderReworkPool();

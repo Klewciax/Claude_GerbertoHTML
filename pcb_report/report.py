@@ -50,8 +50,7 @@ def build_report_html(
         "reportId": resolved_report_id,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "viewBox": gerber_result.view_box.to_dict() if gerber_result.view_box else None,
-        "topSvgInner": gerber_result.top_svg,
-        "bottomSvgInner": gerber_result.bottom_svg,
+        "gerberLayers": [layer.to_dict() for layer in gerber_result.layers],
         "warnings": gerber_result.warnings,
         "variants": {name: v.to_dict() for name, v in variants.items()},
         "defaultVariant": default_variant,
@@ -140,6 +139,7 @@ def build_report_html(
           <div class="assembly-tab__side-switch">
             <button type="button" id="sideTopBtn" class="is-active">Góra (Top)</button>
             <button type="button" id="sideBottomBtn">Dół (Bottom)</button>
+            <button type="button" id="layerPanelToggleBtn" class="layer-panel-toggle">Warstwy</button>
           </div>
           <div class="pcb-viewer">
             <div class="pcb-viewer__toolbar">
@@ -147,6 +147,13 @@ def build_report_html(
               <button type="button" id="zoomInBtn">+</button>
               <button type="button" id="zoomOutBtn">−</button>
               <span class="pcb-viewer__mapping-hint" id="mappingHint" style="display:none;"></span>
+            </div>
+            <div class="layer-panel" id="layerPanel" style="display:none;">
+              <div class="layer-panel__header">
+                <h3>Warstwy Gerber</h3>
+                <button type="button" id="layerPanelCloseBtn" title="Zamknij">✕</button>
+              </div>
+              <div class="layer-panel__list" id="layerPanelList"></div>
             </div>
             <div class="pcb-viewer__empty" id="boardEmpty" style="display:none;">Brak wyrenderowanej płytki PCB (sprawdź ostrzeżenia po lewej).</div>
             <div class="board-viewport" id="boardViewport">

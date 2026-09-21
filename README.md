@@ -138,7 +138,7 @@ Następnie otwórz `report.html` w przeglądarce.
 | `--unit {mm,inch}` | nie | Domyślne jednostki współrzędnych w pliku pick-and-place, używane tylko gdy nagłówek kolumny sam nie mówi jednostki (np. samo `X`/`Y` zamiast `Center-X(mm)`) — patrz niżej. |
 | `-o, --output PLIK` | nie | Ścieżka wyjściowa (domyślnie `<KATALOG>/report.html`). |
 | `--report-id ID` | nie | Wymuszony klucz `localStorage` (domyślnie wyliczany automatycznie z nazw plików Gerber + zestawu oznaczeń — pozwala to na ponowne wygenerowanie raportu dla tego samego projektu bez utraty zaznaczonych checkboxów). |
-| `--all-layers` | nie | Renderuj też maskę lutowniczą, wewnętrzną miedź i inne warstwy mechaniczne (domyślnie pomijane, patrz sekcja "Format plików wejściowych"). |
+| `--all-layers` | nie | Zaznacz domyślnie wszystkie warstwy w panelu "Warstwy" raportu, zamiast tylko zwykle przydatnych (patrz sekcja "Format plików wejściowych"). Każdą warstwę można i tak dowolnie przełączyć bezpośrednio w raporcie. |
 
 ### Jak działa auto-wykrywanie (i jak rozróżnia BOM od pick-and-place)
 
@@ -209,13 +209,21 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
   **Domyślnie w widoku Assembly widoczne są: obrys, miedź zewnętrzna (góra/dół), silkscreen, pasta,
   courtyard i wiertła.** Miedź zewnętrzna jest celowo pokazywana — to na niej leżą pola lutownicze
   (pady) komponentów, czyli najbardziej czytelna wskazówka "gdzie fizycznie jest ten element"
-  (potwierdzone porównaniem z ręcznym doborem warstw w przeglądarce Gerberów KiCada). Pomijane są
-  natomiast: **maska lutownicza** (tylko przebarwienie, nic nie wnosi), **wewnętrzne (zagrzebane)
-  warstwy miedzi** (niewidoczne z zewnątrz, nieistotne przy montażu) oraz **inne, nierozpoznane
-  warstwy mechaniczne Altium** (`.GM<numer>` poza obrysem/courtyardem) — w praktycznych projektach
-  Altium bywa ich dziesiątki (wymiary, notatki fabrykacyjne, strefy wysokości...) i tylko zaśmiecają
-  widok. Żeby jednak pokazać wszystko (np. do weryfikacji fabrykacyjnej), dodaj flagę
-  `--all-layers`.
+  (potwierdzone porównaniem z ręcznym doborem warstw w przeglądarce Gerberów KiCada). Domyślnie
+  ukryte są natomiast: **maska lutownicza** (tylko przebarwienie, nic nie wnosi), **wewnętrzne
+  (zagrzebane) warstwy miedzi** (niewidoczne z zewnątrz, nieistotne przy montażu) oraz **inne,
+  nierozpoznane warstwy mechaniczne Altium** (`.GM<numer>` poza obrysem/courtyardem) — w
+  praktycznych projektach Altium bywa ich dziesiątki (wymiary, notatki fabrykacyjne, strefy
+  wysokości...) i domyślnie tylko zaśmiecałyby widok.
+
+  **To tylko domyślne ustawienie, nie twardy filtr** — klasyfikacja warstw to heurystyka (nazwa
+  pliku albo atrybut X2), więc dla nietypowego projektu może się pomylić. W raporcie, w prawym
+  górnym rogu widoku płytki, jest przycisk **„Warstwy”** otwierający panel z listą *każdego*
+  wczytanego pliku Gerber osobno (nazwa, typ, strona) z checkboxem — można dowolnie włączyć lub
+  wyłączyć każdą warstwę bez ponownego uruchamiania narzędzia, wybór zapisuje się tak samo jak
+  reszta stanu (localStorage + eksport/import). Flaga `--all-layers` tylko zmienia, które warstwy
+  są **domyślnie zaznaczone** przy pierwszym otwarciu raportu (wszystkie zamiast tylko powyższych)
+  — nie jest już jedynym sposobem, by je zobaczyć.
 
 ## Mapowanie komponentów BOM → wizualizacja PCB
 
@@ -314,10 +322,12 @@ czym:
    domyślnie Altium i KiCad), korzysta z niego — to niezawodny, niezależny od nazwy pliku sposób.
    W przeciwnym razie (starszy RS-274X bez atrybutów X2) zgaduje z nazwy pliku (prosta heurystyka,
    patrz `_classify_from_attrs`/`_classify_type`/`_classify_side` w kodzie).
-2. Odfiltrowuje miedź i maskę, chyba że podano `--all-layers` (patrz "Format plików wejściowych").
-3. Liczy wspólną ramkę graniczną (sumę) pozostałych plików — to staje się `viewBox` całego SVG.
-4. Nakłada pozostałe warstwy dla danej strony na jeden `<g>`, w kolejności miedź → maska → pasta →
-   courtyard → opis → obrys → wiertła, każdą w osobnym kolorze i przezroczystości.
+2. Liczy wspólną ramkę graniczną (sumę) domyślnie widocznych plików (patrz "Format plików
+   wejściowych") — to staje się `viewBox` całego SVG, żeby ukryte domyślnie warstwy (np. dziesiątki
+   nieznanych mechanicznych plików o dużym rozmiarze) nie rozjeżdżały wyjściowego kadru.
+3. Każdy plik trafia jako osobna, niezależnie przełączalna warstwa (`GerberLayer`) do panelu
+   "Warstwy" w raporcie (patrz "Format plików wejściowych" wyżej), w kolejności rysowania miedź →
+   maska → pasta → courtyard → opis → obrys → wiertła, każda w osobnym kolorze i przezroczystości.
 5. Jeśli podano pick-and-place, próbuje dopasować każdemu oznaczeniu jego prawdziwy obrys z
    courtyard albo (gdy courtyard brak) z silkscreenu, zamiast rysować generyczny znacznik — patrz
    niżej "Dopasowywanie prawdziwych obrysów komponentów".

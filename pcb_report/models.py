@@ -70,9 +70,33 @@ class BomVariant:
 
 
 @dataclass
+class GerberLayer:
+    """One rendered Gerber/Excellon file, kept separate (rather than baked
+    into one merged image) so the report can offer a per-layer visibility
+    toggle — layer-type classification is a best-effort heuristic and real
+    projects regularly have layers it gets wrong or that are only useful
+    sometimes (fab verification), so letting the viewer show/hide any of
+    them directly beats re-running the tool with different flags."""
+
+    name: str
+    layer_type: str
+    side: str
+    svg: str
+    default_visible: bool
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "type": self.layer_type,
+            "side": self.side,
+            "svg": self.svg,
+            "defaultVisible": self.default_visible,
+        }
+
+
+@dataclass
 class GerberRenderResult:
-    top_svg: Optional[str] = None
-    bottom_svg: Optional[str] = None
+    layers: list[GerberLayer] = field(default_factory=list)
     view_box: Optional[ViewBox] = None
     warnings: list[str] = field(default_factory=list)
     # designator -> recolored SVG snippet of its real silkscreen/courtyard
