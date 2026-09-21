@@ -56,8 +56,8 @@ pcb-report --help
 ```
 
 Jeśli zobaczysz opis argumentów (`--gerber`, `--bom`, ...) — gotowe, `pcb-report` działa już z
-dowolnego katalogu. Ten krok instaluje jedyną zależność (`gerbonara`, do renderowania Gerberów) —
-nie trzeba niczego instalować osobno.
+dowolnego katalogu. Ten krok instaluje dwie zależności (`gerbonara` do renderowania Gerberów,
+`openpyxl` do odczytu BOM w formacie Excel) — nie trzeba niczego instalować osobno.
 
 > **Na Windows: `'pcb-report' is not recognized`?** To najczęstszy problem po instalacji — polecenie
 > zainstalowało się poprawnie, ale folder ze skryptami Pythona nie jest w `PATH`, więc system go nie
@@ -84,7 +84,29 @@ Repozytorium zawiera mały zestaw testowy w `examples/minimal/` z gotowym skrypt
 Efekt: plik `examples/minimal/report.html`, gotowy do otwarcia w przeglądarce. Jeśli to zadziałało —
 instalacja jest poprawna.
 
-### Z własnymi plikami
+### Najwygodniej: auto-wykrywanie plików w katalogu projektu
+
+Jeśli w katalogu projektu (eksport z Altium/KiCad) są pliki Gerber, jeden BOM i jeden (lub więcej —
+np. osobno Top/Bottom) plik pick-and-place, wystarczy wskazać sam katalog — reszta wykrywa się
+automatycznie po rozszerzeniu (Gerbery) i po zawartości nagłówków (BOM vs pick-and-place, patrz
+niżej):
+
+```bash
+pcb-report sciezka/do/katalogu_projektu
+```
+
+(albo `pcb-report` bez argumentu, jeśli jesteś już w tym katalogu). Wynik trafia domyślnie do
+`<katalog_projektu>/report.html`. To jest zalecany sposób użycia przy częstym, powtarzalnym
+generowaniu raportów dla tego samego projektu — nie trzeba pamiętać ani wpisywać żadnych nazw plików.
+
+Auto-wykrywanie można częściowo nadpisać — np. wskazać BOM jawnie, a Gerbery i PnP zostawić do
+wykrycia:
+
+```bash
+pcb-report sciezka/do/projektu --bom moj_bom.xlsx
+```
+
+### Z jawnie podanymi plikami
 
 **macOS / Linux (bash/zsh):**
 
@@ -109,25 +131,48 @@ Następnie otwórz `report.html` w przeglądarce.
 
 | Argument | Wymagany | Opis |
 | --- | --- | --- |
-| `--gerber PLIK [PLIK ...]` | tak | Pliki Gerber/Excellon (RS-274X) — miedź, maska, opis, obrys, wiertła. |
-| `--bom PLIK` | tak | Plik BOM w formacie `.csv` lub `.xml`. |
-| `--pnp PLIK` | nie | Plik pick-and-place `.csv` (pozycje X/Y/rotacja/strona). Bez niego wszystkie komponenty trzeba ustawić ręcznie w raporcie. |
-| `--unit {mm,inch}` | nie | Jednostki współrzędnych w pliku pick-and-place (domyślnie `mm`). |
-| `-o, --output PLIK` | nie | Ścieżka wyjściowa (domyślnie `report.html`). |
+| `KATALOG` (pozycyjny) | nie | Katalog projektu do przeszukania auto-wykrywaniem (domyślnie bieżący katalog). Ignorowany dla plików podanych jawnie poniżej. |
+| `--gerber PLIK [PLIK ...]` | nie | Pliki Gerber/Excellon (RS-274X) — miedź, maska, opis, obrys, wiertła. Pominięcie = auto-wykrywanie w `KATALOG` po rozszerzeniu. |
+| `--bom PLIK` | nie | Plik BOM w formacie `.csv`, `.xml` lub `.xlsx` (Excel). Pominięcie = auto-wykrywanie w `KATALOG`. |
+| `--pnp PLIK [PLIK ...]` | nie | Plik(i) pick-and-place `.csv`/`.txt` — więcej niż jeden, gdy Top/Bottom są osobnymi plikami (typowe w Altium). Pominięcie = auto-wykrywanie w `KATALOG`. Bez żadnego pliku wszystkie komponenty trzeba ustawić ręcznie w raporcie. |
+| `--unit {mm,inch}` | nie | Domyślne jednostki współrzędnych w pliku pick-and-place, używane tylko gdy nagłówek kolumny sam nie mówi jednostki (np. samo `X`/`Y` zamiast `Center-X(mm)`) — patrz niżej. |
+| `-o, --output PLIK` | nie | Ścieżka wyjściowa (domyślnie `<KATALOG>/report.html`). |
 | `--report-id ID` | nie | Wymuszony klucz `localStorage` (domyślnie wyliczany automatycznie z nazw plików Gerber + zestawu oznaczeń — pozwala to na ponowne wygenerowanie raportu dla tego samego projektu bez utraty zaznaczonych checkboxów). |
+
+### Jak działa auto-wykrywanie (i jak rozróżnia BOM od pick-and-place)
+
+Oba pliki bywają w tym samym formacie (`.csv`, a w Altium pick-and-place często `.txt`) — ta sama
+nazwa rozszerzenia nic nie mówi o zawartości, więc auto-wykrywanie **otwiera i sprawdza nagłówek
+kolumn** każdego kandydata, zamiast zgadywać po rozszerzeniu:
+
+- Ma parę kolumn pozycji (`Mid X`/`Mid Y`, `Center-X`/`Center-Y`, `PosX`/`PosY`, ...) → **pick-and-place**.
+- Ma kolumnę Designator/Reference, ale bez pary kolumn pozycji → **BOM**.
+- Plik `.txt`, który w ogóle nie wygląda na tabelę z nagłówkiem, jest dodatkowo sprawdzany, czy da
+  się go sparsować jako plik wiertła Excellon (Altium często eksportuje wiertła jako `.txt` — ta sama
+  nazwa rozszerzenia co pick-and-place) — jeśli tak, trafia do listy plików Gerber, nie do BOM/PnP.
+- Więcej niż jeden plik pasujący do BOM → błąd z listą kandydatów (trzeba wskazać jawnie przez
+  `--bom`); więcej niż jeden plik pick-and-place jest **łączony** (typowy przypadek: oddzielne
+  raporty Top/Bottom z Altium).
+- Jednostki (mm/mil/cal) w pick-and-place są odczytywane z samej nazwy kolumny, gdy ta ją zawiera
+  (np. `Center-X(mil)`) — `--unit` jest używany tylko jako domyślna wartość dla kolumn bez podanej
+  jednostki w nazwie (np. samo `X`).
 
 ## Format plików wejściowych
 
-- **BOM (CSV)** — nagłówki (rozpoznawane bez rozróżniania wielkości liter): `Designator`/`Reference`/`RefDes`,
-  `Value`, `Footprint`/`Package`, `Description`, `Manufacturer`, `MPN`, `Qty`. Pole z oznaczeniami może
-  zawierać kilka wartości naraz, np. `"R1, R2, R5"` — typowe dla BOM-ów grupujących identyczne części
-  w jednym wierszu. Kliknięcie takiego wiersza w raporcie podświetla **wszystkie** wymienione oznaczenia
-  jednocześnie na wizualizacji płytki.
+- **BOM (CSV lub Excel `.xlsx`)** — nagłówki (rozpoznawane bez rozróżniania wielkości liter):
+  `Designator`/`Reference`/`RefDes`, `Value`/`Comment` (Altium nazywa to pole "Comment"), `Footprint`/
+  `Package`, `Description`, `Manufacturer`, `MPN`, `Qty`. Dla `.xlsx` brany jest pierwszy arkusz,
+  pierwszy wiersz jako nagłówek. Pole z oznaczeniami może zawierać kilka wartości naraz, np.
+  `"R1, R2, R5"` — typowe dla BOM-ów grupujących identyczne części w jednym wierszu. Kliknięcie
+  takiego wiersza w raporcie podświetla **wszystkie** wymienione oznaczenia jednocześnie na
+  wizualizacji płytki.
 - **BOM (XML)** — parser jest heurystyczny: szuka węzłów zawierających pole typu Designator/Reference,
   ponieważ format XML BOM nie jest ustandaryzowany między systemami CAD. Dla większej niezawodności
   zalecany jest eksport do CSV.
-- **Pick-and-place (CSV)** — nagłówki: `Designator`, `Mid X`/`X`, `Mid Y`/`Y`, `Rotation`, `Layer`/`Side`
-  (`Top`/`Bottom`). Standardowy eksport z KiCad/Altium/Eagle.
+- **Pick-and-place (CSV lub TXT)** — nagłówki: `Designator`/`Ref`, para kolumn pozycji w dowolnej z
+  konwencji `Mid X`/`Mid Y`, `Center-X`/`Center-Y`, `PosX`/`PosY`, `Ref X`/`Ref Y` (opcjonalnie z
+  jednostką w nazwie, np. `Center-X(mil)`), `Rotation`, `Layer`/`Side` (`Top`/`Bottom`). Standardowy
+  eksport z KiCad/Altium/Eagle; delimiter (przecinek/tabulator/średnik) wykrywany automatycznie.
 - **Gerber** — dowolny zestaw plików RS-274X (miedź, maska, opis, obrys) i opcjonalnie Excellon
   (wiertła); typ warstwy (miedź/maska/opis/obrys/wiertła) i strona (góra/dół) są zgadywane po nazwie
   pliku — rozpoznawane są konwencje KiCad (`*.gtl/.gbl/...` oraz `*-F.Cu.gbr/-B.Cu.gbr/...`) i typowe
@@ -176,7 +221,7 @@ przed dostawą w kolorowaniu).
 
 | Element | Wybór | Uzasadnienie |
 | --- | --- | --- |
-| Interfejs / logika | **Python 3** — `csv`, `xml.etree.ElementTree`, `argparse`, `json` z biblioteki standardowej, plus jedna zależność pip (`gerbonara`) | minimalna liczba zależności; instalacja to jedno polecenie (`pip install -e .`), bez Node.js/npm |
+| Interfejs / logika | **Python 3** — `csv`, `xml.etree.ElementTree`, `argparse`, `json` z biblioteki standardowej, plus dwie zależności pip (`gerbonara`, `openpyxl`) | minimalna liczba zależności; instalacja to jedno polecenie (`pip install -e .`), bez Node.js/npm |
 | Renderowanie Gerber → SVG | [`gerbonara`](https://gitlab.com/gerbolyze/gerbonara) — czysto-pythonowy parser RS-274X/Excellon | parsowanie Gerberów (łuki, apertury, makra) od zera byłoby dużym, ryzykownym nakładem pracy. Pierwsza próba (`pcb-tools`) nie dała się zainstalować (niedziałające zależności natywne, cairocffi). `gerbonara` instaluje się czystym `pip` i renderuje geometrię **pojedynczego pliku** do SVG bez żadnych wymagań co do nazewnictwa czy kompletności zestawu — jego wysokopoziomowe API (`LayerStack`) wymaga pełnego, konwencjonalnie nazwanego zestawu plików fabrykacyjnych, więc `pcb_report/gerber.py` renderuje każdy plik osobno i **samodzielnie składa** je w jeden obraz (patrz niżej), zachowując tolerancję na dowolny, niepełny zestaw plików |
 | Wyjście | **Jeden statyczny plik HTML** (CSS + JS + dane BOM/placement/SVG w jednym pliku, bez zewnętrznych zasobów) | można go otworzyć od razu w przeglądarce, wysłać, zarchiwizować — bez hostowania serwera |
 | Interaktywność w przeglądarce | Czysty JavaScript (bez frameworków) operujący na natywnym `<svg>` | wizualizacja płytki i znaczniki komponentów są w tym samym układzie współrzędnych `viewBox` (mm) co dane pick-and-place, więc zoom/pan (transformacja CSS) i zaznaczanie (klasy CSS) nie wymagają dodatkowych przeliczeń ani bibliotek |
@@ -202,10 +247,11 @@ wyglądu w porównaniu do dedykowanych narzędzi typu KiCad/gerbv.
 
 ```
 pcb_report/
-  cli.py                 # argparse CLI: --gerber --bom --pnp --unit -o
+  cli.py                 # argparse CLI: KATALOG --gerber --bom --pnp --unit -o
+  discovery.py           # auto-wykrywanie Gerber/BOM/pick-and-place w katalogu projektu
   models.py              # dataclasses: BomComponent, Placement, ViewBox, GerberRenderResult
-  bom.py                 # parser BOM: CSV (stdlib csv) + XML (stdlib ElementTree, heurystyczny)
-  placement.py           # parser pick-and-place CSV, konwersja jednostek mm/cale
+  bom.py                 # parser BOM: CSV/XLSX (stdlib csv + openpyxl) + XML (stdlib ElementTree)
+  placement.py           # parser pick-and-place CSV/TXT, auto-wykrywanie delimitera i jednostek
   gerber.py              # gerbonara: parsowanie + kompozycja wielu plików Gerber -> jedno SVG
   report.py              # składa końcowy, samodzielny plik HTML (CSS + JS + dane w jednym pliku)
   assets/

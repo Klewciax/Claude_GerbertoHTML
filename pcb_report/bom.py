@@ -18,9 +18,9 @@ from typing import Optional
 from .models import BomComponent
 
 DESIGNATOR_KEYS = {"designator", "designators", "reference", "references", "refdes", "ref des", "ref"}
-VALUE_KEYS = {"value", "val"}
+VALUE_KEYS = {"value", "val", "comment"}
 FOOTPRINT_KEYS = {"footprint", "package", "pattern"}
-DESCRIPTION_KEYS = {"description", "desc", "comment"}
+DESCRIPTION_KEYS = {"description", "desc"}
 MANUFACTURER_KEYS = {"manufacturer", "mfg", "mfr"}
 MPN_KEYS = {"mpn", "manufacturer part number", "part number", "part_number", "partnumber"}
 QTY_KEYS = {"qty", "quantity", "count"}
@@ -148,9 +148,52 @@ def parse_bom_xml(text: str) -> tuple[list[BomComponent], list[str]]:
     return components, warnings
 
 
+def parse_bom_xlsx(path: str) -> tuple[list[BomComponent], list[str]]:
+    try:
+        import openpyxl
+    except ImportError:
+        return [], [
+            "Brak biblioteki 'openpyxl', wymaganej do odczytu BOM w formacie Excel (.xlsx). "
+            "Zainstaluj ją poleceniem 'pip install openpyxl' albo wyeksportuj BOM do CSV."
+        ]
+
+    try:
+        workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    except Exception as exc:
+        return [], [f"Nie udało się otworzyć pliku Excel: {exc}"]
+
+    sheet = workbook.active
+    rows_iter = sheet.iter_rows(values_only=True)
+    try:
+        header = next(rows_iter)
+    except StopIteration:
+        return [], ["Arkusz Excel jest pusty."]
+
+    header = [str(h).strip() if h is not None else "" for h in header]
+    components: list[BomComponent] = []
+    for raw_row in rows_iter:
+        row = {header[i]: ("" if raw_row[i] is None else str(raw_row[i]).strip()) for i in range(min(len(header), len(raw_row)))}
+        if not any(row.values()):
+            continue
+        component = _row_to_component(row)
+        if component:
+            components.append(component)
+
+    warnings: list[str] = []
+    if not components:
+        warnings.append(
+            "Nie znaleziono kolumny z oznaczeniami (Designator/Reference/RefDes) w arkuszu Excel. "
+            "Sprawdź nagłówki w pierwszym wierszu pierwszego arkusza."
+        )
+    return components, warnings
+
+
 def parse_bom_file(path: str) -> tuple[list[BomComponent], list[str]]:
+    lower = path.lower()
+    if lower.endswith(".xlsx"):
+        return parse_bom_xlsx(path)
     with open(path, "r", encoding="utf-8-sig") as f:
         text = f.read()
-    if path.lower().endswith(".xml"):
+    if lower.endswith(".xml"):
         return parse_bom_xml(text)
     return parse_bom_csv(text)

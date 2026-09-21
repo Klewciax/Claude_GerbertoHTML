@@ -1,4 +1,4 @@
-"""Parse pick-and-place CSV files into Placement records."""
+"""Parse pick-and-place CSV/TXT files into Placement records."""
 
 from __future__ import annotations
 
@@ -10,12 +10,19 @@ from typing import Optional
 from .models import Placement
 
 DESIGNATOR_KEYS = {"designator", "ref", "refdes", "ref des"}
-X_KEYS = {"mid x", "midx", "x", "pos x", "posx", "x (mm)", "x(mm)"}
-Y_KEYS = {"mid y", "midy", "y", "pos y", "posy", "y (mm)", "y(mm)"}
 ROTATION_KEYS = {"rotation", "rot"}
 SIDE_KEYS = {"layer", "side"}
 
+# Matches "X", "Mid X", "PosX", "Center-X(mm)", "Ref X (mil)", "XLocation", ...
+# — Altium and KiCad both name this column differently depending on export
+# settings, so column *identity* is matched loosely; a unit suffix embedded
+# in the name (mm/mil/in) is then used to override --unit for that column.
+_X_PATTERN = re.compile(r"^(mid|pos|center|ref|location)?x(location)?(mm|mil|inch|in)?$")
+_Y_PATTERN = re.compile(r"^(mid|pos|center|ref|location)?y(location)?(mm|mil|inch|in)?$")
+_UNIT_SUFFIX = re.compile(r"(mm|mil|inch|in)$")
+
 INCH_TO_MM = 25.4
+MIL_TO_MM = 0.0254
 
 
 def _normalize_key(key: str) -> str:
@@ -23,6 +30,10 @@ def _normalize_key(key: str) -> str:
     key = re.sub(r"[_.]", " ", key)
     key = re.sub(r"\s+", " ", key)
     return key
+
+
+def _compact(key: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", key.lower())
 
 
 def _find_field(row: dict[str, str], candidates: set[str]) -> Optional[str]:
@@ -34,6 +45,29 @@ def _find_field(row: dict[str, str], candidates: set[str]) -> Optional[str]:
     return None
 
 
+def _find_axis_field(row: dict[str, str], pattern: re.Pattern) -> tuple[Optional[str], Optional[str]]:
+    """Returns (value, unit_suffix_or_None) for the first column matching pattern."""
+    for key, value in row.items():
+        if key is None or not value:
+            continue
+        compact = _compact(key)
+        match = pattern.match(compact)
+        if match:
+            unit_match = _UNIT_SUFFIX.search(compact)
+            return value, (unit_match.group(1) if unit_match else None)
+    return None, None
+
+
+def _unit_factor(explicit_unit: str, header_unit: Optional[str]) -> float:
+    if header_unit in ("mil",):
+        return MIL_TO_MM
+    if header_unit in ("in", "inch"):
+        return INCH_TO_MM
+    if header_unit == "mm":
+        return 1.0
+    return INCH_TO_MM if explicit_unit == "inch" else 1.0
+
+
 def _parse_side(raw: Optional[str]) -> str:
     if not raw:
         return "top"
@@ -43,26 +77,40 @@ def _parse_side(raw: Optional[str]) -> str:
     return "top"
 
 
+def _sniff_delimiter(sample_line: str) -> str:
+    try:
+        return csv.Sniffer().sniff(sample_line, delimiters=",;\t").delimiter
+    except csv.Error:
+        if "\t" in sample_line:
+            return "\t"
+        if ";" in sample_line:
+            return ";"
+        return ","
+
+
 def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], list[str]]:
     warnings: list[str] = []
-    factor = INCH_TO_MM if unit == "inch" else 1.0
 
     lines = [line for line in text.splitlines() if not line.strip().startswith("#")]
-    reader = csv.DictReader(io.StringIO("\n".join(lines)))
+    if not lines:
+        return [], ["Plik jest pusty."]
+
+    delimiter = _sniff_delimiter(lines[0])
+    reader = csv.DictReader(io.StringIO("\n".join(lines)), delimiter=delimiter)
     if reader.fieldnames is None:
-        return [], ["Plik CSV jest pusty lub nie zawiera nagłówka."]
+        return [], ["Plik jest pusty lub nie zawiera nagłówka."]
 
     placements: list[Placement] = []
     for row in reader:
         clean_row = {(k or "").strip(): (v or "").strip() for k, v in row.items() if k is not None}
         designator = _find_field(clean_row, DESIGNATOR_KEYS)
-        x_raw = _find_field(clean_row, X_KEYS)
-        y_raw = _find_field(clean_row, Y_KEYS)
+        x_raw, x_unit = _find_axis_field(clean_row, _X_PATTERN)
+        y_raw, y_unit = _find_axis_field(clean_row, _Y_PATTERN)
         if not designator or x_raw is None or y_raw is None:
             continue
         try:
-            x = float(x_raw) * factor
-            y = float(y_raw) * factor
+            x = float(x_raw) * _unit_factor(unit, x_unit)
+            y = float(y_raw) * _unit_factor(unit, y_unit)
         except ValueError:
             continue
 
@@ -84,7 +132,7 @@ def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], l
 
     if not placements:
         warnings.append(
-            "Nie znaleziono poprawnych wierszy z pozycją (Designator, Mid X, Mid Y). "
+            "Nie znaleziono poprawnych wierszy z pozycją (Designator, Mid X/Center-X, Mid Y/Center-Y). "
             "Sprawdź nagłówki pliku pick-and-place."
         )
 

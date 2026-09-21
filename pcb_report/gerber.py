@@ -21,6 +21,7 @@ the right color/side.
 from __future__ import annotations
 
 import re
+import warnings as _py_warnings
 from pathlib import Path
 from typing import Optional
 
@@ -123,32 +124,64 @@ class _ParsedFile:
         self.body = body
 
 
+def _try_open(opener, path: str):
+    """Returns (parsed_or_None, warnings, exception_or_None)."""
+    with _py_warnings.catch_warnings(record=True) as caught:
+        _py_warnings.simplefilter("always")
+        try:
+            return opener(path), list(caught), None
+        except Exception as exc:
+            return None, list(caught), exc
+
+
 def _open_gerber_or_excellon(path: str):
-    try:
-        return GerberFile.open(path)
-    except Exception:
-        pass
-    return ExcellonFile.open(path)
+    """Returns (parsed, warnings). Tries RS-274X first, then Excellon.
+
+    A file of the "wrong" kind often doesn't raise at all — e.g. an
+    Excellon drill file can parse as a syntactically-empty Gerber (no
+    recognized Gerber commands) instead of failing outright — so success
+    alone isn't enough to pick a parser; whichever one yields real
+    (non-empty) content wins.
+    """
+    gerber, gerber_warnings, gerber_exc = _try_open(GerberFile.open, path)
+    if gerber is not None and not gerber.is_empty:
+        return gerber, gerber_warnings
+
+    excellon, excellon_warnings, excellon_exc = _try_open(ExcellonFile.open, path)
+    if excellon is not None and not excellon.is_empty:
+        return excellon, excellon_warnings
+
+    if gerber is not None:
+        return gerber, gerber_warnings
+    if excellon is not None:
+        return excellon, excellon_warnings
+    raise gerber_exc or excellon_exc
 
 
 def _parse_file(path: str, warnings: list[str]) -> Optional[_ParsedFile]:
     name = Path(path).name
     try:
-        parsed = _open_gerber_or_excellon(path)
+        parsed, parse_warnings = _open_gerber_or_excellon(path)
     except Exception as exc:
         warnings.append(f"Nie udało się odczytać pliku {name}: {exc}")
         return None
 
-    try:
-        if parsed.is_empty:
+    with _py_warnings.catch_warnings(record=True) as caught:
+        _py_warnings.simplefilter("always")
+        try:
+            if parsed.is_empty:
+                return None
+            bbox = parsed.bounding_box()
+            if bbox is None:
+                return None
+            svg = str(parsed.to_svg())
+        except Exception as exc:
+            warnings.append(f"Nie udało się wyrenderować pliku {name}: {exc}")
             return None
-        bbox = parsed.bounding_box()
-        if bbox is None:
-            return None
-        svg = str(parsed.to_svg())
-    except Exception as exc:
-        warnings.append(f"Nie udało się wyrenderować pliku {name}: {exc}")
-        return None
+        parse_warnings = parse_warnings + list(caught)
+
+    for w in parse_warnings:
+        warnings.append(f"{name}: {w.message}")
 
     match = _INNER_G_RE.search(svg)
     if not match:
