@@ -126,11 +126,6 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Błąd: plik nie istnieje: {path}", file=sys.stderr)
             return 1
 
-    print(f"Renderowanie {len(gerber_paths)} plik(ów) Gerber...")
-    gerber_result: GerberRenderResult = render_gerber_files(gerber_paths, all_layers=args.all_layers)
-    for warning in gerber_result.warnings:
-        print(f"  ⚠ {warning}", file=sys.stderr)
-
     print(f"Parsowanie BOM: {bom_path}")
     components, bom_warnings = parse_bom_file(bom_path)
     for warning in bom_warnings:
@@ -154,6 +149,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  ⚠ Brak pozycji dla {len(missing)} oznaczeń (można ustawić ręcznie w raporcie): {', '.join(missing[:20])}" + (" ..." if len(missing) > 20 else ""), file=sys.stderr)
     else:
         print("Brak pliku pick-and-place — wszystkie komponenty trzeba będzie pozycjonować ręcznie w raporcie.")
+
+    print(f"Renderowanie {len(gerber_paths)} plik(ów) Gerber...")
+    gerber_result: GerberRenderResult = render_gerber_files(gerber_paths, all_layers=args.all_layers, placements=placements)
+    for warning in gerber_result.warnings:
+        print(f"  ⚠ {warning}", file=sys.stderr)
+    if gerber_result.component_shapes:
+        print(f"  → dopasowano realny obrys silkscreen/courtyard dla {len(gerber_result.component_shapes)} komponentów")
 
     html = build_report_html(
         gerber_paths=gerber_paths,

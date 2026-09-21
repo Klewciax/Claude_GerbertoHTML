@@ -190,8 +190,15 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 
 .marker circle.marker__halo { opacity: 0; }
 .marker.is-selected circle.marker__halo { opacity: 1; }
-.marker circle.marker__base { stroke: #14314f; stroke-width: 0.12; opacity: 0.92; }
-.marker.is-selected circle.marker__base { stroke: #ff6a00; stroke-width: 0.25; }
+
+/* Generic circle marker (no real shape matched) */
+.marker__body circle { stroke: #14314f; stroke-width: 0.12; opacity: 0.92; }
+.marker.is-selected .marker__body circle { stroke: #ff6a00; stroke-width: 0.25; }
+
+/* Real silkscreen/courtyard outline marker */
+.marker.has-shape .marker__body path { stroke-width: 0.15; opacity: 0.95; }
+.marker.has-shape.is-selected .marker__body path { stroke: #ff6a00; stroke-width: 0.3; }
+
 .marker circle.marker__pin1 { fill: #ffcc00; stroke: #7a5200; stroke-width: 0.08; }
 .marker text { fill: #ff6a00; font-weight: 700; font-size: 1.6px; display: none; }
 .marker.is-selected text { display: block; }

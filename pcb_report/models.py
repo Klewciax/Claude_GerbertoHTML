@@ -53,3 +53,7 @@ class GerberRenderResult:
     bottom_svg: Optional[str] = None
     view_box: Optional[ViewBox] = None
     warnings: list[str] = field(default_factory=list)
+    # designator -> recolored SVG snippet of its real silkscreen/courtyard
+    # outline (native board coordinates), for designators where one could be
+    # confidently matched. Absent designators fall back to a generic marker.
+    component_shapes: dict[str, str] = field(default_factory=dict)

@@ -25,7 +25,7 @@ import warnings as _py_warnings
 from pathlib import Path
 from typing import Optional
 
-from .models import GerberRenderResult, ViewBox
+from .models import GerberRenderResult, Placement, ViewBox
 
 try:
     from gerbonara.excellon import ExcellonFile
@@ -130,12 +130,13 @@ def _recolor(svg_body: str) -> str:
 
 
 class _ParsedFile:
-    def __init__(self, path: str, layer_type: LayerType, side: Side, bbox: tuple, body: str):
+    def __init__(self, path: str, layer_type: LayerType, side: Side, bbox: tuple, body: str, objects=None):
         self.path = path
         self.layer_type = layer_type
         self.side = side
         self.bbox = bbox  # ((minx, miny), (maxx, maxy))
         self.body = body
+        self.objects = objects  # raw gerbonara GraphicObject list, only kept for silk/courtyard
 
 
 def _try_open(opener, path: str):
@@ -204,7 +205,8 @@ def _parse_file(path: str, warnings: list[str]) -> Optional[_ParsedFile]:
 
     layer_type = _classify_type(name)
     side = _classify_side(name)
-    return _ParsedFile(path, layer_type, side, bbox, body)
+    objects = getattr(parsed, "objects", None) if layer_type in ("silk", "courtyard") else None
+    return _ParsedFile(path, layer_type, side, bbox, body, objects=objects)
 
 
 def _union_bbox(files: list[_ParsedFile]) -> tuple[float, float, float, float]:
@@ -214,6 +216,141 @@ def _union_bbox(files: list[_ParsedFile]) -> tuple[float, float, float, float]:
         min_x, min_y = min(min_x, fx0), min(min_y, fy0)
         max_x, max_y = max(max_x, fx1), max(max_y, fy1)
     return min_x, min_y, max_x, max_y
+
+
+# ---------------------------------------------------------------------
+# Component outline matching: cluster individual silkscreen/courtyard
+# primitives into per-component shapes, then match each to the nearest
+# pick-and-place position, so the report can highlight a component's real
+# drawn outline instead of a generic circle where possible.
+# ---------------------------------------------------------------------
+_CLUSTER_PAD_MM = 0.15
+_MAX_CLUSTER_SIZE_MM = 60.0
+_MAX_CLUSTER_OBJECTS = 3000
+
+
+def _cluster_layer_objects(objects: list) -> list[dict]:
+    items = []
+    for o in objects:
+        try:
+            (x0, y0), (x1, y1) = o.bounding_box()
+        except Exception:
+            continue
+        items.append((o, (x0, y0, x1, y1)))
+
+    n = len(items)
+    if n == 0 or n > _MAX_CLUSTER_OBJECTS:
+        return []
+
+    parent = list(range(n))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(i: int, j: int) -> None:
+        ri, rj = find(i), find(j)
+        if ri != rj:
+            parent[ri] = rj
+
+    pad = _CLUSTER_PAD_MM
+    for i in range(n):
+        bi = items[i][1]
+        for j in range(i + 1, n):
+            bj = items[j][1]
+            if not (bi[2] + pad < bj[0] or bj[2] + pad < bi[0] or bi[3] + pad < bj[1] or bj[3] + pad < bi[1]):
+                union(i, j)
+
+    groups: dict[int, list[int]] = {}
+    for i in range(n):
+        groups.setdefault(find(i), []).append(i)
+
+    clusters = []
+    for idxs in groups.values():
+        b = items[idxs[0]][1]
+        for k in idxs[1:]:
+            ob = items[k][1]
+            b = (min(b[0], ob[0]), min(b[1], ob[1]), max(b[2], ob[2]), max(b[3], ob[3]))
+        w, h = b[2] - b[0], b[3] - b[1]
+        if max(w, h) > _MAX_CLUSTER_SIZE_MM or max(w, h) <= 0:
+            continue
+
+        svg_parts = []
+        for k in idxs:
+            obj = items[k][0]
+            try:
+                for prim in obj.to_primitives():
+                    svg_parts.append(str(prim.to_svg()))
+            except Exception:
+                continue
+        if not svg_parts:
+            continue
+
+        clusters.append({
+            "bbox": b,
+            "center": ((b[0] + b[2]) / 2, (b[1] + b[3]) / 2),
+            "svg": _recolor("".join(svg_parts)),
+        })
+    return clusters
+
+
+def _shape_candidates_by_side(parsed_files: list[_ParsedFile]) -> dict[Side, list[dict]]:
+    def objects_for(layer_type: LayerType, side: Side) -> list:
+        combined = []
+        for f in parsed_files:
+            if f.layer_type == layer_type and f.side in (side, "all") and f.objects:
+                combined.extend(f.objects)
+        return combined
+
+    result: dict[Side, list[dict]] = {}
+    for side in ("top", "bottom"):
+        # Courtyard is preferred: it's normally just one clean outline per
+        # component, whereas silkscreen also mixes in reference-designator
+        # text and polarity marks that would otherwise pollute clustering.
+        objs = objects_for("courtyard", side) or objects_for("silk", side)
+        result[side] = _cluster_layer_objects(objs) if objs else []
+    return result
+
+
+def match_component_shapes(
+    parsed_files: list[_ParsedFile], placements: dict[str, Placement]
+) -> dict[str, str]:
+    if not placements:
+        return {}
+
+    shapes_by_side = _shape_candidates_by_side(parsed_files)
+    matches: dict[str, str] = {}
+
+    for side, clusters in shapes_by_side.items():
+        if not clusters:
+            continue
+        candidates = [p for p in placements.values() if p.side == side]
+        if not candidates:
+            continue
+
+        triples = []
+        for p in candidates:
+            for ci, c in enumerate(clusters):
+                dx = p.x - c["center"][0]
+                dy = p.y - c["center"][1]
+                dist = (dx * dx + dy * dy) ** 0.5
+                diag = ((c["bbox"][2] - c["bbox"][0]) ** 2 + (c["bbox"][3] - c["bbox"][1]) ** 2) ** 0.5
+                if dist <= max(diag, 1.0):
+                    triples.append((dist, p.designator, ci))
+        triples.sort(key=lambda t: t[0])
+
+        claimed_clusters: set[int] = set()
+        claimed_designators: set[str] = set()
+        for _dist, designator, ci in triples:
+            if designator in claimed_designators or ci in claimed_clusters:
+                continue
+            matches[designator] = clusters[ci]["svg"]
+            claimed_clusters.add(ci)
+            claimed_designators.add(designator)
+
+    return matches
 
 
 def _composite(files: list[_ParsedFile], side: Side) -> Optional[str]:
@@ -231,7 +368,11 @@ def _composite(files: list[_ParsedFile], side: Side) -> Optional[str]:
     return '<g transform="scale(1,-1)">' + "".join(layers) + "</g>"
 
 
-def render_gerber_files(paths: list[str], all_layers: bool = False) -> GerberRenderResult:
+def render_gerber_files(
+    paths: list[str],
+    all_layers: bool = False,
+    placements: Optional[dict[str, Placement]] = None,
+) -> GerberRenderResult:
     if not paths:
         return GerberRenderResult(warnings=["Nie wskazano żadnych plików Gerber."])
 
@@ -289,4 +430,17 @@ def render_gerber_files(paths: list[str], all_layers: bool = False) -> GerberRen
     if not top_svg and not bottom_svg:
         warnings.append("Renderowanie nie zwróciło żadnej grafiki dla żadnej ze stron płytki.")
 
-    return GerberRenderResult(top_svg=top_svg, bottom_svg=bottom_svg, view_box=view_box, warnings=warnings)
+    component_shapes: dict[str, str] = {}
+    if placements:
+        try:
+            component_shapes = match_component_shapes(parsed_files, placements)
+        except Exception as exc:
+            warnings.append(f"Nie udało się dopasować realnych obrysów komponentów, użyto znaczników zastępczych: {exc}")
+
+    return GerberRenderResult(
+        top_svg=top_svg,
+        bottom_svg=bottom_svg,
+        view_box=view_box,
+        warnings=warnings,
+        component_shapes=component_shapes,
+    )

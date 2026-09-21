@@ -53,6 +53,7 @@ def build_report_html(
         "warnings": gerber_result.warnings,
         "components": [c.to_dict() for c in components],
         "placements": {designator: p.to_dict() for designator, p in placements.items()},
+        "componentShapes": gerber_result.component_shapes,
     }
     data_json = _escape_for_script_tag(json.dumps(data, ensure_ascii=False))
 

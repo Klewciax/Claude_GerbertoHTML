@@ -432,8 +432,8 @@
 
   function refreshAllMarkerFills() {
     document.querySelectorAll('.marker').forEach(function (m) {
-      var base = m.querySelector('.marker__base');
-      if (base) base.setAttribute('fill', statusFillForKey(m.dataset.partKey));
+      var body = m.querySelector('.marker__body');
+      if (body) body.style.color = statusFillForKey(m.dataset.partKey);
     });
   }
 
@@ -508,10 +508,25 @@
       halo.setAttribute('cx', x); halo.setAttribute('cy', y); halo.setAttribute('r', 2.2);
       halo.setAttribute('fill', 'none'); halo.setAttribute('stroke', '#ff6a00'); halo.setAttribute('stroke-width', 0.35);
 
-      var base = document.createElementNS(svgNs, 'circle');
-      base.setAttribute('class', 'marker__base');
-      base.setAttribute('cx', x); base.setAttribute('cy', y); base.setAttribute('r', 0.95);
-      base.setAttribute('fill', statusFillForKey(entry.key));
+      // Real silkscreen/courtyard outline when one was matched to this
+      // designator (native board coords, just needs the same Y-flip as the
+      // board render); otherwise a generic circle at the placement point.
+      var body = document.createElementNS(svgNs, 'g');
+      body.setAttribute('class', 'marker__body');
+      var shapeSvg = DATA.componentShapes && DATA.componentShapes[entry.designator];
+      if (shapeSvg) {
+        marker.classList.add('has-shape');
+        var shapeGroup = document.createElementNS(svgNs, 'g');
+        shapeGroup.setAttribute('transform', 'scale(1,-1)');
+        shapeGroup.innerHTML = shapeSvg;
+        body.appendChild(shapeGroup);
+      } else {
+        var circle = document.createElementNS(svgNs, 'circle');
+        circle.setAttribute('cx', x); circle.setAttribute('cy', y); circle.setAttribute('r', 0.95);
+        circle.setAttribute('fill', 'currentColor');
+        body.appendChild(circle);
+      }
+      body.style.color = statusFillForKey(entry.key);
 
       var pin1 = document.createElementNS(svgNs, 'circle');
       pin1.setAttribute('class', 'marker__pin1');
@@ -522,7 +537,7 @@
       label.textContent = entry.designator;
 
       marker.appendChild(halo);
-      marker.appendChild(base);
+      marker.appendChild(body);
       marker.appendChild(pin1);
       marker.appendChild(label);
       marker.addEventListener('click', function (evt) {

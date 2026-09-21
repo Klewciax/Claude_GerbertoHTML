@@ -249,10 +249,37 @@ czym:
 3. Liczy wspólną ramkę graniczną (sumę) pozostałych plików — to staje się `viewBox` całego SVG.
 4. Nakłada pozostałe warstwy dla danej strony na jeden `<g>`, w kolejności miedź → maska → pasta →
    courtyard → opis → obrys → wiertła, każdą w osobnym kolorze i przezroczystości.
+5. Jeśli podano pick-and-place, próbuje dopasować każdemu oznaczeniu jego prawdziwy obrys z
+   courtyard albo (gdy courtyard brak) z silkscreenu, zamiast rysować generyczny znacznik — patrz
+   niżej "Dopasowywanie prawdziwych obrysów komponentów".
 
 Dzięki temu narzędzie renderuje sensowny obraz płytki niezależnie od tego, czy dostaniesz 2 pliki czy
 kompletny zestaw fabrykacyjny — kosztem nieco uproszczonego (nie w pełni fotorealistycznego)
 wyglądu w porównaniu do dedykowanych narzędzi typu KiCad/gerbv.
+
+### Dopasowywanie prawdziwych obrysów komponentów
+
+Inspiracją była wtyczka [InteractiveHtmlBom](https://github.com/openscopeproject/InteractiveHtmlBom)
+dla KiCada, która rysuje na wizualizacji prawdziwe kształty footprintów — z tą różnicą, że
+GerbertoHTML nie ma dostępu do pliku płytki (`.kicad_pcb`/`PcbDoc`), tylko do samych Gerberów, więc
+kształty trzeba odtworzyć z geometrii warstwy courtyard/silkscreen:
+
+1. Dla każdej strony płytki bierze geometrię warstwy courtyard (preferowana — zwykle to prostokąt
+   obrysu komponentu) albo, gdy jej brak, silkscreenu.
+2. Grupuje sąsiadujące ze sobą prymitywy (linie/łuki/flashe) w klastry algorytmem Union-Find po
+   nachodzeniu na siebie ramek granicznych (z niewielkim marginesem) — każdy klaster to kandydat na
+   obrys jednego komponentu.
+3. Dopasowuje klastry do oznaczeń z pick-and-place metodą najbliższego sąsiada (po współrzędnych
+   środka), każdy klaster i każde oznaczenie może zostać dopasowane tylko raz, w promieniu
+   ograniczonym przekątną klastra.
+4. Oznaczenia, dla których nie znaleziono pasującego klastra (bo np. courtyard/silkscreen nie
+   zawiera dla nich żadnej geometrii, albo geometria jest zbyt daleko/zbyt duża), dostają zwykły
+   generyczny znacznik (kółko) — tak jak wcześniej.
+
+To dopasowanie jest heurystyczne i "best effort" — dla typowych płytek z kompletnym courtyardem
+działa dobrze, ale nie jest gwarantowane dla każdej płytki (gęsto upakowane komponenty, brak
+courtyardu, niestandardowe warstwy fabrykacyjne). Liczbę dopasowanych komponentów narzędzie wypisuje
+w konsoli po wygenerowaniu raportu.
 
 ## Struktura projektu
 
@@ -281,8 +308,10 @@ examples/minimal/          # mały zestaw testowy + gotowe skrypty run_example.p
 - Kompozycja wielu warstw jest uproszczona (stałe kolory/przezroczystość per typ warstwy, bez
   właściwego maskowania miedzi przez maskę lutowniczą) — wystarczające do celów referencyjnych przy
   montażu, ale nie zastępuje dedykowanego przeglądarki Gerberów (np. gerbv, KiCad) do weryfikacji fab.
-- Rozmiar znacznika komponentu na wizualizacji jest uproszczony (stały promień + znacznik pinu 1 wg
-  rotacji) — narzędzie nie ma dostępu do rzeczywistej geometrii footprintu.
+- Znacznik komponentu na wizualizacji pokazuje prawdziwy obrys z courtyard/silkscreen, gdy uda się go
+  dopasować (patrz "Dopasowywanie prawdziwych obrysów komponentów" wyżej); w pozostałych przypadkach
+  (brak geometrii, zbyt gęste upakowanie, brak pick-and-place) używany jest generyczny znacznik —
+  stałe kółko + znacznik pinu 1 wg rotacji.
 - `localStorage` jest przypisany do pochodzenia (origin) przeglądarki — w niektórych konfiguracjach
   otwieranie plików `file://` z restrykcyjnymi ustawieniami prywatności może ograniczać zapis stanu;
   w standardowej konfiguracji Chrome/Firefox/Edge działa to poprawnie (zweryfikowano).
