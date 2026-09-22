@@ -139,6 +139,7 @@ Następnie otwórz `report.html` w przeglądarce.
 | `-o, --output PLIK` | nie | Ścieżka wyjściowa (domyślnie `<KATALOG>/report.html`). |
 | `--report-id ID` | nie | Wymuszony klucz `localStorage` (domyślnie wyliczany automatycznie z nazw plików Gerber + zestawu oznaczeń — pozwala to na ponowne wygenerowanie raportu dla tego samego projektu bez utraty zaznaczonych checkboxów). |
 | `--all-layers` | nie | Zaznacz domyślnie wszystkie warstwy w panelu "Warstwy" raportu, zamiast tylko zwykle przydatnych (patrz sekcja "Format plików wejściowych"). Każdą warstwę można i tak dowolnie przełączyć bezpośrednio w raporcie. |
+| `--non-interactive` | nie | Nie pytaj w terminalu o przeznaczenie nierozpoznanych plików (patrz "Jak działa auto-wykrywanie") — po prostu je pomiń, jak w wersjach bez tej funkcji. |
 
 ### Jak działa auto-wykrywanie (i jak rozróżnia BOM od pick-and-place)
 
@@ -163,6 +164,12 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
 - Jednostki (mm/mil/cal) w pick-and-place są odczytywane z samej nazwy kolumny, gdy ta ją zawiera
   (np. `Center-X(mil)`) — `--unit` jest używany tylko jako domyślna wartość dla kolumn bez podanej
   jednostki w nazwie (np. samo `X`).
+- Plik, którego w ogóle nie da się rozpoznać jako BOM ani pick-and-place (np. jakiś raport
+  statusu w formie tabeli) — jeśli narzędzie jest uruchomione w normalnym terminalu, **zapyta
+  wprost**, czym ten plik jest (BOM / pick-and-place / pomiń), zamiast po cichu go ignorować.
+  Wciśnięcie Enter pomija plik tak jak dotychczas. Żeby wyłączyć te pytania (np. przy uruchamianiu
+  narzędzia automatycznie, bez człowieka przy klawiaturze), dodaj `--non-interactive` — wtedy
+  nierozpoznane pliki są po prostu pomijane z ostrzeżeniem, tak jak działało to wcześniej.
 
 ## Format plików wejściowych
 

@@ -51,6 +51,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("-o", "--output", default=None, metavar="PLIK", help="Ścieżka wyjściowego pliku HTML (domyślnie <KATALOG>/report.html).")
     parser.add_argument("--report-id", default=None, help="Wymuś konkretne ID raportu (klucz localStorage) zamiast wyliczonego automatycznie.")
+    parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="Nie pytaj w terminalu o przeznaczenie plików, których auto-wykrywanie nie potrafiło "
+        "rozpoznać jako BOM/pick-and-place (domyślnie: pyta, gdy uruchomione w interaktywnym "
+        "terminalu) — takie pliki są wtedy po prostu pomijane, jak dotychczas.",
+    )
     return parser
 
 
@@ -73,7 +80,7 @@ def _resolve_inputs(args: argparse.Namespace, project_dir: Path) -> Optional[Res
     still missing.
     """
     need_discovery = args.gerber is None or args.bom is None or args.pnp is None
-    discovered = discover_project_files(project_dir) if need_discovery else None
+    discovered = discover_project_files(project_dir, interactive=not args.non_interactive) if need_discovery else None
 
     def _rel(p: str) -> str:
         try:

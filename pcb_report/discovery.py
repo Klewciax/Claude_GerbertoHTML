@@ -22,6 +22,7 @@ from __future__ import annotations
 import csv
 import io
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -253,11 +254,41 @@ class DiscoveryResult:
     errors: list[str] = field(default_factory=list)
 
 
-def discover_project_files(project_dir: Path) -> DiscoveryResult:
+def _prompt_file_kind(path: Path, project_dir: Path) -> str:
+    """Asks the person running the tool what an unrecognized file actually
+    is, instead of just silently ignoring it. Returns 'bom', 'pnp', or
+    'skip'."""
+    try:
+        rel = str(path.relative_to(project_dir))
+    except ValueError:
+        rel = str(path)
+    print(f"\nNie rozpoznano automatycznie przeznaczenia pliku:\n  {rel}", file=sys.stderr)
+    while True:
+        try:
+            choice = input("  Co to jest? [b] BOM   [p] Pick-and-place   [Enter] pomiń: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            return "skip"
+        if choice in ("", "s", "skip", "pomin", "pomiń"):
+            return "skip"
+        if choice in ("b", "bom"):
+            return "bom"
+        if choice in ("p", "pnp"):
+            return "pnp"
+        print("  Nie rozpoznano odpowiedzi — wpisz 'b', 'p' albo wciśnij Enter, by pominąć.", file=sys.stderr)
+
+
+def discover_project_files(project_dir: Path, interactive: bool = True) -> DiscoveryResult:
     """Searches the *entire* directory tree under project_dir, not just its
     top level — Altium's "Project Outputs" folder typically splits Gerber /
     NC Drill / Bill of Materials / Pick and Place into separate
     subfolders, at an arbitrary nesting depth and under arbitrary names.
+
+    `interactive` (only meaningful when running in a real terminal — see
+    the `sys.stdin.isatty()` check below) lets the person running the tool
+    manually classify a file whose purpose content-sniffing couldn't
+    determine (e.g. a status/report text file that isn't a BOM or
+    pick-and-place export but happens to look tabular) instead of it just
+    being silently ignored.
     """
     result = DiscoveryResult()
     files = [p for p in project_dir.rglob("*") if p.is_file()]
@@ -305,6 +336,18 @@ def discover_project_files(project_dir: Path) -> DiscoveryResult:
             continue
 
         # Anything else (readme, zip, pdf report, ...) is silently ignored.
+
+    if unresolved and interactive and sys.stdin.isatty():
+        still_unresolved: list[Path] = []
+        for path in unresolved:
+            kind = _prompt_file_kind(path, project_dir)
+            if kind == "bom":
+                bom_candidates.append(path)
+            elif kind == "pnp":
+                pnp_candidates.append(path)
+            else:
+                still_unresolved.append(path)
+        unresolved = still_unresolved
 
     def _rel(p: Path) -> str:
         try:

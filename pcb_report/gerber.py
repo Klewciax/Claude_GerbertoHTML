@@ -55,7 +55,7 @@ _OPACITY: dict[LayerType, float] = {
     "copper": 0.92,
     "inner_copper": 0.5,
     "mask": 0.5,
-    "silk": 0.9,
+    "silk": 1.0,
     "paste": 0.75,
     "courtyard": 0.8,
     "drill": 1.0,
