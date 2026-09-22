@@ -12,6 +12,12 @@ from .models import Placement
 DESIGNATOR_KEYS = {"designator", "ref", "refdes", "ref des"}
 ROTATION_KEYS = {"rotation", "rot"}
 SIDE_KEYS = {"layer", "side"}
+# A free-text column (component comment/value/description) is the one most
+# likely to contain a literal, unescaped delimiter character (e.g. "GSM
+# MODULE, 802.11 b/g/n" in a comma-delimited file) — every other column is
+# either a short code (designator, footprint, side) or numeric (X/Y/rotation),
+# which practically never contains the file's own delimiter.
+FREE_TEXT_KEYS = {"comment", "value", "val", "description", "desc", "part description", "footprint description", "component description"}
 
 # Matches "X", "Mid X", "PosX", "Center-X(mm)", "Ref X (mil)", "XLocation", ...
 # — Altium and KiCad both name this column differently depending on export
@@ -129,6 +135,32 @@ def _split_line(line: str, mode: tuple) -> Optional[list[str]]:
     return parts or None
 
 
+def _find_free_text_index(header_fields: list[str]) -> Optional[int]:
+    for i, header in enumerate(header_fields):
+        if _normalize_key(header) in FREE_TEXT_KEYS:
+            return i
+    return None
+
+
+def _repair_overflow_row(values: list[str], header_fields: list[str], delimiter: str) -> Optional[list[str]]:
+    """A data row with MORE fields than the header almost always means an
+    unescaped delimiter landed inside the free-text comment/value/description
+    column (see FREE_TEXT_KEYS) — this collapses the extra split-off pieces
+    back into that one column, re-joined with the same delimiter, so the
+    columns after it (crucially X/Y/rotation) line back up correctly.
+    Returns None (leaving the row untouched, to be reported as a mismatch)
+    when there's no recognizable free-text column to blame the overflow on.
+    """
+    excess = len(values) - len(header_fields)
+    if excess <= 0:
+        return None
+    idx = _find_free_text_index(header_fields)
+    if idx is None or idx + excess >= len(values):
+        return None
+    merged = delimiter.join(values[idx : idx + excess + 1])
+    return values[:idx] + [merged] + values[idx + excess + 1 :]
+
+
 def _detect_header(lines: list[str]) -> Optional[tuple[int, list[str], tuple]]:
     """Scans the first _HEADER_SCAN_LINES lines for the pick-and-place
     header, trying each as both a delimited row and a whitespace-split row.
@@ -175,6 +207,9 @@ def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], l
     placements: list[Placement] = []
     skipped_bad_position: list[tuple[str, str, str]] = []
     skipped_bad_position_count = 0
+    field_count_mismatches = 0
+    repaired_overflow_count = 0
+    delimiter = mode[1] if mode[0] == "delim" else None
     for raw_line in lines[header_index + 1 :]:
         line = raw_line.rstrip("\r\n")
         if not line.strip() or line.strip().startswith("#"):
@@ -182,6 +217,21 @@ def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], l
         values = _split_line(line, mode)
         if not values:
             continue
+        if len(values) != len(header_fields):
+            # A row with a different field count than the header almost
+            # always means an unescaped delimiter character landed inside a
+            # free-text field (e.g. a Comment/Description with a literal
+            # comma in a comma-delimited file) — every column read after
+            # that point for *this row* is shifted and not trustworthy.
+            # When there's a recognizable free-text column to blame it on,
+            # the extra split-off pieces are re-merged into it so X/Y line
+            # back up correctly instead of the whole row being discarded.
+            repaired = _repair_overflow_row(values, header_fields, delimiter) if delimiter else None
+            if repaired is not None:
+                values = repaired
+                repaired_overflow_count += 1
+            else:
+                field_count_mismatches += 1
         clean_row = {header_fields[i]: (values[i].strip() if i < len(values) else "") for i in range(len(header_fields))}
         designator = _find_field(clean_row, DESIGNATOR_KEYS)
         x_raw, x_unit = _find_axis_field(clean_row, _X_PATTERN)
@@ -218,11 +268,30 @@ def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], l
             "Nie znaleziono poprawnych wierszy z pozycją (Designator, Mid X/Center-X, Mid Y/Center-Y). "
             "Sprawdź nagłówki pliku pick-and-place."
         )
+    if repaired_overflow_count:
+        warnings.append(
+            f"Naprawiono automatycznie {repaired_overflow_count} wiersz(y), w których dodatkowy znak "
+            f"'{delimiter}' wewnątrz pola tekstowego (np. Comment/Value/Description) przesuwał kolejne "
+            "kolumny — wartości X/Y dla tych wierszy powinny być teraz poprawne, ale warto je zweryfikować "
+            "wzrokowo w raporcie."
+        )
     if skipped_bad_position_count:
         examples = "; ".join(f"{d}: X={x!r} Y={y!r}" for d, x, y in skipped_bad_position)
+        hint = ""
+        if field_count_mismatches:
+            hint = (
+                f" Uwaga: {field_count_mismatches} z tych wierszy miało inną liczbę pól niż nagłówek "
+                f"({len(header_fields)}) — to zwykle oznacza znak '{delimiter or ''}' wewnątrz pola "
+                "tekstowego (np. opisu lub wartości komponentu) bez ujęcia go w cudzysłów, przez co "
+                "kolumny X/Y \"rozjeżdżają się\" tylko dla tych konkretnych wierszy. Jeśli w pliku nie ma "
+                "kolumny Comment/Value/Description (naprawa automatyczna działa tylko wtedy), sprawdź, czy "
+                "eksport poprawnie cytuje takie pola, albo wyeksportuj plik z innym separatorem (np. "
+                "tabulatorem), jeśli narzędzie na to pozwala."
+            )
         warnings.append(
             f"Pominięto {skipped_bad_position_count} wiersz(y) z pozycją X/Y, której nie udało się "
             f"odczytać jako liczbę (np. {examples}) — sprawdź separator dziesiętny/format liczb w pliku."
+            + hint
         )
 
     return placements, warnings

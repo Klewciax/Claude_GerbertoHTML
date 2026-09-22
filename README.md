@@ -200,6 +200,15 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
   poprzedza sam nagłówek znakiem `#` (`# Ref  Val  ...`) — przeszukiwane jest pierwsze ~20 niepustych
   linii pliku (z tymczasowo zdjętym `#`) w poszukiwaniu tej z Designator+X+Y, więc żaden z tych
   formatów nie przeszkadza.
+  Jeśli w pliku z delimiterem (np. przecinkiem) trafi się wiersz z komponentem, którego pole
+  Comment/Value/Description samo zawiera ten znak bez ujęcia w cudzysłów (np. `GSM MODULE, 802.11
+  b/g/n`), taki wiersz ma więcej pól niż nagłówek — kolumny X/Y "rozjeżdżają się" i bez obsługi tego
+  przypadku trafiłyby do raportu jako bezsensowne wartości (fragmenty opisu zamiast liczb).
+  Narzędzie wykrywa taką sytuację po samej liczbie pól i automatycznie sklaja z powrotem nadmiarowe
+  fragmenty w kolumnę Comment/Value/Description, przywracając poprawne wyrównanie reszty kolumn dla
+  tego wiersza — konsola wypisze ostrzeżenie z liczbą naprawionych wierszy, warto to jednak zweryfikować
+  wzrokowo w raporcie. Naprawa działa tylko wtedy, gdy plik w ogóle ma taką kolumnę w nagłówku; w
+  przeciwnym razie wiersz jest pomijany z ostrzeżeniem wskazującym na prawdopodobną przyczynę.
 - **Gerber** — dowolny zestaw plików RS-274X (miedź, maska, opis, pasta, courtyard, obrys) i
   opcjonalnie Excellon (wiertła). Jeśli plik zawiera standardowy atrybut Gerber X2
   `%TF.FileFunction,...*%` (domyślne w nowszym eksporcie z Altium/KiCad), typ warstwy i strona są
