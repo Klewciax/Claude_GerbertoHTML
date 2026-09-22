@@ -102,6 +102,10 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
   background: var(--white); color: var(--gray-700); font-size: 0.82rem; font-weight: 600;
 }
 .assembly-tab__side-switch button.is-active { background: var(--blue); border-color: var(--blue); color: var(--white); }
+/* Marks which side a selected component actually sits on -- independent of
+   is-active (the side currently being viewed), so picking a row tells you
+   which button to click even before switching. */
+.assembly-tab__side-switch button.has-selection { box-shadow: inset 0 0 0 2px #ff6a00; }
 .assembly-tab__side-switch .layer-panel-toggle { margin-left: auto; }
 
 .layer-panel {

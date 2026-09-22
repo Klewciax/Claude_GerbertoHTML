@@ -260,6 +260,13 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
    środka zgodnie z rotacją komponentu).
 4. Panel **"Dane wejściowe"** (lista plików Gerber i ostrzeżenia) jest domyślnie zwinięty — kliknij
    jego nagłówek, żeby go rozwinąć/schować, podobnie jak panel **"Warstwy"**.
+5. Wizualizacja pokazuje **tylko komponenty z bieżącej strony** (Góra/Dół) — komponent umiejscowiony
+   na dole nie jest w ogóle rysowany, gdy widok jest ustawiony na górę, i odwrotnie. Zaznaczenie
+   komponentu (lub grupy) na liście po lewej podświetla na przyciskach **Góra/Dół** (pomarańczowa
+   obwódka, niezależnie od tego, który jest aktualnie wybrany jako widok), po której stronie/stronach
+   faktycznie się znajduje — grupa obejmująca komponenty z obu stron podświetli oba przyciski. Ustawianie
+   pozycji ręcznie (patrz punkt 2. powyżej) przypisuje komponentowi tę stronę, na której akurat jest
+   widok w momencie kliknięcia na płytce.
 
 ## Grupowanie i śledzenie ilości (Dostarczono / Zamontowano)
 

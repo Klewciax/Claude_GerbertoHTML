@@ -434,6 +434,31 @@
   function afterSelectionChange() {
     renderComponentList();
     updateMarkerSelectionClasses();
+    updateSideButtonsForSelection();
+  }
+
+  // Which side(s) the currently selected component(s) are actually placed
+  // on -- shown on the Top/Bottom buttons themselves (a distinct highlight
+  // from the "currently viewed side" is-active state) so picking a row in
+  // the sidebar tells you which button to click to actually see it, even
+  // before switching.
+  function selectedDesignators() {
+    if (state.selection.designator) return [state.selection.designator];
+    if (state.selection.key) {
+      var group = partGroupsByKey[state.selection.key];
+      return group ? group.designators : [];
+    }
+    return [];
+  }
+
+  function updateSideButtonsForSelection() {
+    var sides = {};
+    selectedDesignators().forEach(function (d) {
+      var placement = state.placements[d];
+      if (placement) sides[placement.side] = true;
+    });
+    topBtn.classList.toggle('has-selection', !!sides.top);
+    bottomBtn.classList.toggle('has-selection', !!sides.bottom);
   }
 
   function afterStockChange() {
@@ -554,6 +579,7 @@
     flatRows.forEach(function (entry) {
       var placement = state.placements[entry.designator];
       if (!placement) return;
+      if (placement.side !== state.activeSide) return;
       var x = placement.x;
       var y = -placement.y;
       var rad = (placement.rotation * Math.PI) / 180;
@@ -814,7 +840,11 @@
       x: local.x,
       y: -local.y,
       rotation: (state.placements[designator] && state.placements[designator].rotation) || 0,
-      side: (state.placements[designator] && state.placements[designator].side) || 'top',
+      // The side being clicked on is what the person actually placed it on
+      // -- not whatever side it happened to have before (now that markers
+      // are filtered by activeSide, keeping the old side here would make a
+      // just-placed component vanish immediately if it differs).
+      side: state.activeSide,
       manual: true,
     };
     state.mappingDesignator = null;
@@ -985,6 +1015,7 @@
     renderShortagePanel();
     renderReworkPool();
     renderSamples();
+    updateSideButtonsForSelection();
   }
 
   function importStateFromFile(file) {
@@ -1081,4 +1112,5 @@
   renderShortagePanel();
   renderReworkPool();
   renderSamples();
+  updateSideButtonsForSelection();
 })();
