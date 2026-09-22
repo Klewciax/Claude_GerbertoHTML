@@ -201,16 +201,43 @@ def _classify_side(name: str) -> Side:
     return "all"
 
 
+_CLEAR_POLARITY_RE = re.compile(r'(?:fill|stroke)="white"')
+
+
 def _recolor(svg_body: str) -> str:
-    # Individual shapes hardcode fill/stroke="black" (drawn) or "white"
-    # (cleared, from negative-polarity apertures). Swap "black" for
-    # currentColor so our wrapping <g style="color:..."> controls the
-    # palette, and treat "white" as fully transparent so a clear region in
-    # one layer doesn't paint an opaque patch over layers beneath it in
-    # the composite.
+    # Individual shapes hardcode fill/stroke="black" (drawn, "dark" gerber
+    # polarity) or "white" (drawn, "clear" polarity -- gerber's own
+    # mechanism for punching a hole in geometry already drawn earlier in
+    # the same file, e.g. the counter of a "0" or the bowl of an "R" when
+    # a font is exported as filled vector-outline regions rather than pen
+    # strokes, which is how Altium/KiCad export a TrueType-derived
+    # silkscreen font). Swap "black" for currentColor so our wrapping
+    # <g style="color:..."> controls the palette. "white" is turned into
+    # "none" here -- fine for a file with no clear-polarity shapes at all,
+    # but for one that actually has them, _build_layers takes the mask
+    # path below instead of calling this, since "none" only makes the
+    # clear shape invisible, it doesn't erase what's underneath it.
     svg_body = re.sub(r'(fill|stroke)="black"', r'\1="currentColor"', svg_body)
     svg_body = re.sub(r'(fill|stroke)="white"', r'\1="none"', svg_body)
     return svg_body
+
+
+def _mask_luminance_recolor(svg_body: str) -> str:
+    """Prepares svg_body to be used as the content of an SVG <mask>, where
+    luminance decides visibility (white = shown, black = hidden). Gerber's
+    "dark" polarity (black in gerbonara's own SVG) should end up visible in
+    the mask, so it becomes white; "clear" polarity (white) should
+    genuinely hide whatever came before it, so it becomes black. Element
+    order is unchanged, so a clear shape correctly punches through only
+    the dark shapes already drawn earlier in the same file -- exactly
+    gerber's own polarity semantics, just expressed as a mask instead of
+    (incorrectly) as plain painter's-algorithm opacity."""
+
+    def _swap(match: re.Match) -> str:
+        attr, value = match.group(1), match.group(2)
+        return f'{attr}="{"white" if value == "black" else "black"}"'
+
+    return re.sub(r'(fill|stroke)="(black|white)"', _swap, svg_body)
 
 
 class _ParsedFile:
@@ -285,7 +312,10 @@ def _parse_file(path: str, warnings: list[str]) -> Optional[_ParsedFile]:
     match = _INNER_G_RE.search(svg)
     if not match:
         return None
-    body = _recolor(match.group(1))
+    # Kept raw (not yet recolored) -- _build_layers needs to see the real
+    # black/white fills to decide whether this file needs the mask-based
+    # render path (see _mask_luminance_recolor).
+    body = match.group(1)
 
     from_attrs = _classify_from_attrs(getattr(parsed, "file_attrs", None) or {})
     if from_attrs is not None:
@@ -452,10 +482,35 @@ def _build_layers(files: list[_ParsedFile], all_layers: bool) -> list[GerberLaye
     isn't pre-filtered/merged server-side any more."""
     ordered = sorted(files, key=lambda f: _Z_ORDER.index(f.layer_type) if f.layer_type in _Z_ORDER else 0)
     layers = []
-    for f in ordered:
+    for i, f in enumerate(ordered):
         color = _COLORS.get(f.layer_type, _COLORS["unknown"])
         opacity = _OPACITY.get(f.layer_type, _OPACITY["unknown"])
-        svg = f'<g transform="scale(1,-1)"><g style="color:{color}" opacity="{opacity}">{f.body}</g></g>'
+        if _CLEAR_POLARITY_RE.search(f.body):
+            # This file actually uses clear polarity somewhere (common for
+            # silkscreen text exported as filled vector-outline regions,
+            # and for some copper/mask clearance regions) -- render it as a
+            # single solid rect of the layer's color, masked by its own
+            # geometry, so a clear shape genuinely punches a hole instead
+            # of just becoming invisible. Skipped for files without any
+            # clear-polarity shapes (the overwhelming majority) since it
+            # roughly doubles this layer's SVG size.
+            (min_x, min_y), (max_x, max_y) = f.bbox
+            pad = 0.5  # mm -- stroke width extends past the raw bbox
+            mx, my = min_x - pad, min_y - pad
+            mw, mh = (max_x - min_x) + 2 * pad, (max_y - min_y) + 2 * pad
+            mask_id = f"gmask{i}"
+            mask_body = _mask_luminance_recolor(f.body)
+            svg = (
+                f'<g transform="scale(1,-1)">'
+                f'<mask id="{mask_id}" maskUnits="userSpaceOnUse" '
+                f'x="{mx:.4f}" y="{my:.4f}" width="{mw:.4f}" height="{mh:.4f}">{mask_body}</mask>'
+                f'<rect x="{mx:.4f}" y="{my:.4f}" width="{mw:.4f}" height="{mh:.4f}" '
+                f'fill="{color}" opacity="{opacity}" mask="url(#{mask_id})" />'
+                f'</g>'
+            )
+        else:
+            body = _recolor(f.body)
+            svg = f'<g transform="scale(1,-1)"><g style="color:{color}" opacity="{opacity}">{body}</g></g>'
         layers.append(
             GerberLayer(
                 name=Path(f.path).name,
