@@ -284,15 +284,29 @@
     return '<input type="number" min="0" step="1" value="' + needed + '" data-qty="needed" data-key="' + escapeHtml(key) + '" style="width:60px" />';
   }
 
-  function unplacedHtmlFor(designators) {
+  // Every designator is rendered as its own clickable chip — not just
+  // unplaced ones — so a component with an existing (possibly wrong, e.g.
+  // from a since-fixed parsing bug) position can be corrected the same way
+  // a missing one is set: click the chip, then click the board.
+  function designatorChipsHtml(designators) {
+    return designators.map(function (d) {
+      var isUnplaced = !state.placements[d];
+      var isMappingThis = state.mappingDesignator === d;
+      var cls = 'designator-chip' + (isUnplaced ? ' designator-chip--unplaced' : '') + (isMappingThis ? ' is-mapping' : '');
+      var title = isMappingThis
+        ? 'Kliknij, aby anulować'
+        : (isUnplaced ? 'Brak pozycji — kliknij, aby ustawić na płytce' : 'Kliknij, aby zmienić pozycję na płytce');
+      return (
+        '<button type="button" class="' + cls + '" data-action="map" data-designator="' + escapeHtml(d) + '" title="' + title + '">' +
+        escapeHtml(d) + (isMappingThis ? ' ✕' : '') + '</button>'
+      );
+    }).join(' ');
+  }
+
+  function unplacedHintHtml(designators) {
     var unplaced = designators.filter(function (d) { return !state.placements[d]; });
     if (unplaced.length === 0) return '';
-    var isMappingThis = state.mappingDesignator === unplaced[0];
-    return (
-      '<div class="component-list__unplaced">Brak pozycji: ' + escapeHtml(unplaced.join(', ')) +
-      ' <button type="button" data-action="map" data-designator="' + escapeHtml(unplaced[0]) + '">' +
-      (isMappingThis ? 'Anuluj' : 'Ustaw na płytce') + '</button></div>'
-    );
+    return '<div class="component-list__unplaced">Brak pozycji: ' + escapeHtml(unplaced.join(', ')) + '</div>';
   }
 
   function groupedRowHtml(row) {
@@ -301,9 +315,9 @@
     var selected = state.selection.key === row.key && !state.selection.designator;
     return (
       '<tr class="' + (selected ? 'is-selected' : '') + '" data-row-key="' + escapeHtml(row.key) + '">' +
-      '<td><div class="component-list__designators">' + escapeHtml(row.designators.join(', ')) + '</div>' +
+      '<td><div class="component-list__designators">' + designatorChipsHtml(row.designators) + '</div>' +
       (row.mpn ? '<div class="component-list__mpn">' + escapeHtml(row.mpn) + '</div>' : '') +
-      unplacedHtmlFor(row.designators) +
+      unplacedHintHtml(row.designators) +
       '</td>' +
       '<td><div>' + escapeHtml(row.value || '—') + '</div><div class="component-list__footprint">' + escapeHtml(row.footprint || '') + '</div></td>' +
       '<td data-action="stop">' + neededCellHtml(row.key, needed) + '</td>' +
@@ -319,9 +333,9 @@
     var selected = state.selection.designator === entry.designator;
     return (
       '<tr class="' + (selected ? 'is-selected' : '') + '" data-row-key="' + escapeHtml(entry.key) + '" data-designator="' + escapeHtml(entry.designator) + '">' +
-      '<td><div class="component-list__designators">' + escapeHtml(entry.designator) + '</div>' +
+      '<td><div class="component-list__designators">' + designatorChipsHtml([entry.designator]) + '</div>' +
       (entry.mpn ? '<div class="component-list__mpn">' + escapeHtml(entry.mpn) + '</div>' : '') +
-      unplacedHtmlFor([entry.designator]) +
+      unplacedHintHtml([entry.designator]) +
       '</td>' +
       '<td><div>' + escapeHtml(entry.value || '—') + '</div><div class="component-list__footprint">' + escapeHtml(entry.footprint || '') + '</div></td>' +
       '<td><div class="component-list__flat-status">Dostarczono (część): ' + stock.delivered + '/' + needed + '</div>' +
@@ -679,6 +693,15 @@
   });
   layerPanelCloseBtn.addEventListener('click', function () {
     layerPanel.style.display = 'none';
+  });
+
+  var uploadPanelToggleBtn = document.getElementById('uploadPanelToggleBtn');
+  var uploadPanelBody = document.getElementById('uploadPanelBody');
+  uploadPanelToggleBtn.addEventListener('click', function () {
+    var isOpen = uploadPanelBody.style.display !== 'none';
+    uploadPanelBody.style.display = isOpen ? 'none' : 'block';
+    uploadPanelToggleBtn.textContent = isOpen ? '▸' : '▾';
+    uploadPanelToggleBtn.setAttribute('aria-expanded', String(!isOpen));
   });
 
   function renderBoard() {

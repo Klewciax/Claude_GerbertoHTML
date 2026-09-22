@@ -246,11 +246,16 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
 1. **Z danymi pick-and-place** — każdy `designator` z BOM jest automatycznie mapowany na pozycję
    (x, y, rotacja, strona) z pliku PnP.
 2. **Bez danych pozycyjnych (lub brak konkretnego oznaczenia w PnP)** — w wygenerowanym raporcie
-   komponent jest oznaczony jako *"Brak pozycji"* z przyciskiem **„Ustaw na płytce”**: klikasz przycisk,
-   a następnie klikasz na wizualizacji, aby ręcznie przypisać współrzędne. To działa w 100% w
+   oznaczenie jest podświetlone na pomarańczowo z podpisem *"Brak pozycji"* pod nim. Kliknij samo
+   oznaczenie (nie tylko brakujące — **każde**, także już umiejscowione), a następnie kliknij na
+   wizualizacji płytki, aby ręcznie przypisać/poprawić jego współrzędne. To działa w 100% w
    przeglądarce, po wygenerowaniu pliku — nie trzeba nic przeliczać ani ponownie uruchamiać narzędzia.
+   Przydaje się to nie tylko przy brakujących pozycjach, ale też do poprawienia pojedynczego
+   komponentu, którego pozycja z pliku pick-and-place okazała się błędna.
 3. Domyślnie każdy umiejscowiony komponent ma widoczny znacznik **pinu 1** (żółta kropka przesunięta od
    środka zgodnie z rotacją komponentu).
+4. Panel **"Dane wejściowe"** (lista plików Gerber i ostrzeżenia) jest domyślnie zwinięty — kliknij
+   jego nagłówek, żeby go rozwinąć/schować, podobnie jak panel **"Warstwy"**.
 
 ## Grupowanie i śledzenie ilości (Dostarczono / Zamontowano)
 

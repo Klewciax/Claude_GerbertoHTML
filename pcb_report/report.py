@@ -103,9 +103,14 @@ def build_report_html(
       <div class="assembly-tab">
         <aside class="assembly-tab__sidebar">
           <div class="upload-panel">
-            <h2>Dane wejściowe</h2>
-            <p>Plik(i) Gerber: {_html_escape(', '.join(Path(p).name for p in gerber_paths) or '—')}</p>
-            {warnings_html}
+            <div class="upload-panel__header">
+              <h2>Dane wejściowe</h2>
+              <button type="button" id="uploadPanelToggleBtn" class="upload-panel__toggle" aria-expanded="false" title="Pokaż/ukryj">▸</button>
+            </div>
+            <div class="upload-panel__body" id="uploadPanelBody" style="display:none;">
+              <p>Plik(i) Gerber: {_html_escape(', '.join(Path(p).name for p in gerber_paths) or '—')}</p>
+              {warnings_html}
+            </div>
           </div>
 
           <div class="variant-picker" id="variantPicker" style="display:none;">

@@ -131,8 +131,11 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
   padding: 4px 10px; border-radius: 6px; cursor: help;
 }
 
-.upload-panel { padding: 16px; border-bottom: 1px solid var(--gray-200); }
-.upload-panel h2 { font-size: 0.9rem; margin: 0 0 6px; color: var(--navy); }
+.upload-panel { padding: 10px 16px; border-bottom: 1px solid var(--gray-200); }
+.upload-panel__header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+.upload-panel__header h2 { font-size: 0.9rem; margin: 0; color: var(--navy); }
+.upload-panel__toggle { border: none; background: transparent; color: var(--gray-500); font-size: 0.8rem; padding: 2px 6px; }
+.upload-panel__body { margin-top: 8px; }
 .upload-panel p { font-size: 0.72rem; color: var(--gray-500); margin: 0; }
 .upload-panel ul { margin: 8px 0 0; padding-left: 16px; font-size: 0.72rem; color: #7a4b00; }
 
@@ -163,14 +166,18 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .component-list tbody tr:hover { background: var(--gray-100); }
 .component-list tbody tr.is-selected { background: var(--blue-pale); }
 .component-list td { padding: 6px; vertical-align: top; }
-.component-list__designators { font-weight: 700; color: var(--navy); }
+.component-list__designators { display: flex; flex-wrap: wrap; gap: 4px; }
+.designator-chip {
+  font-weight: 700; color: var(--navy); background: var(--gray-100);
+  border: 1px solid var(--gray-200); border-radius: 4px; padding: 1px 6px; font-size: 0.76rem;
+  cursor: pointer;
+}
+.designator-chip:hover { border-color: var(--blue); }
+.designator-chip--unplaced { color: #a15c00; background: #fff3e0; border-color: #f0c080; }
+.designator-chip.is-mapping { background: var(--blue); border-color: var(--blue); color: var(--white); }
 .component-list__mpn { font-size: 0.68rem; color: var(--gray-500); }
 .component-list__footprint { font-size: 0.7rem; color: var(--gray-500); }
 .component-list__unplaced { margin-top: 4px; font-size: 0.68rem; color: #a15c00; }
-.component-list__unplaced button {
-  margin-left: 4px; border: none; background: var(--blue); color: var(--white);
-  border-radius: 4px; padding: 2px 6px; font-size: 0.65rem;
-}
 .component-list__flat-status { font-size: 0.68rem; color: var(--gray-500); margin-top: 2px; }
 
 .qty-cell { display: flex; flex-direction: column; gap: 3px; min-width: 72px; }
