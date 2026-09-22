@@ -233,12 +233,13 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .board-viewport.is-panning { cursor: grabbing; }
 .board-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
 
-.marker circle.marker__halo { opacity: 0; }
-.marker.is-selected circle.marker__halo { opacity: 1; }
+.marker .marker__halo { opacity: 0; }
+.marker.is-selected .marker__halo { opacity: 1; }
 
-/* Generic circle marker (no real shape matched) */
-.marker__body circle { stroke: #14314f; stroke-width: 0.12; opacity: 0.92; }
-.marker.is-selected .marker__body circle { stroke: #ff6a00; stroke-width: 0.25; }
+/* Generic rectangle marker (no real shape matched) -- small on purpose, a
+   full-footprint-sized fill hid the actual pads/silkscreen underneath it. */
+.marker__body rect { stroke: #14314f; stroke-width: 0.1; opacity: 0.85; }
+.marker.is-selected .marker__body rect { stroke: #e02020; stroke-width: 0.15; }
 
 /* Real silkscreen/courtyard outline marker */
 .marker.has-shape .marker__body path { stroke-width: 0.15; opacity: 0.95; }

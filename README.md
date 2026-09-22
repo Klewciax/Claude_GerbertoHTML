@@ -267,6 +267,12 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
    faktycznie się znajduje — grupa obejmująca komponenty z obu stron podświetli oba przyciski. Ustawianie
    pozycji ręcznie (patrz punkt 2. powyżej) przypisuje komponentowi tę stronę, na której akurat jest
    widok w momencie kliknięcia na płytce.
+6. Znaczniki na wizualizacji są małe (mały kwadracik, a przy realnym dopasowaniu kształtu — sam
+   obrys footprintu) zamiast dużych, wypełnionych kółek — przy gęściej upakowanej płytce duże kółka
+   zasłaniałyby sąsiednie elementy i sam silkscreen. Zaznaczony komponent dostaje dodatkowo mały
+   czerwony prostokąt wokół znacznika. Kliknięcie znacznika na wizualizacji zaznacza go też na liście
+   po lewej i przewija listę tak, żeby ten wiersz był widoczny (przydatne przy długiej liście
+   komponentów).
 
 ## Grupowanie i śledzenie ilości (Dostarczono / Zamontowano)
 

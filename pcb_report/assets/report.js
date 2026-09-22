@@ -435,6 +435,16 @@
     renderComponentList();
     updateMarkerSelectionClasses();
     updateSideButtonsForSelection();
+    scrollSelectedRowIntoView();
+  }
+
+  // Clicking a marker on the board selects it the same way clicking its
+  // row does, but the row itself may be scrolled out of view in a long
+  // sidebar list -- bring it into view so the selection is actually visible
+  // there too, not just on the canvas.
+  function scrollSelectedRowIntoView() {
+    var row = listBody.querySelector('tr.is-selected');
+    if (row) row.scrollIntoView({ block: 'nearest' });
   }
 
   // Which side(s) the currently selected component(s) are actually placed
@@ -592,14 +602,20 @@
       marker.dataset.partKey = entry.key;
       marker.dataset.designator = entry.designator;
 
-      var halo = document.createElementNS(svgNs, 'circle');
+      // Small rectangle tags, not filled circles -- circles sized to cover
+      // a whole footprint blanketed dense clusters of small parts and hid
+      // the actual silkscreen/pads underneath them.
+      var haloSize = 0.9;
+      var halo = document.createElementNS(svgNs, 'rect');
       halo.setAttribute('class', 'marker__halo');
-      halo.setAttribute('cx', x); halo.setAttribute('cy', y); halo.setAttribute('r', 2.2);
-      halo.setAttribute('fill', 'none'); halo.setAttribute('stroke', '#ff6a00'); halo.setAttribute('stroke-width', 0.35);
+      halo.setAttribute('x', x - haloSize / 2); halo.setAttribute('y', y - haloSize / 2);
+      halo.setAttribute('width', haloSize); halo.setAttribute('height', haloSize);
+      halo.setAttribute('fill', 'none'); halo.setAttribute('stroke', '#e02020'); halo.setAttribute('stroke-width', 0.25);
 
       // Real silkscreen/courtyard outline when one was matched to this
       // designator (native board coords, just needs the same Y-flip as the
-      // board render); otherwise a generic circle at the placement point.
+      // board render); otherwise a small generic rectangle at the
+      // placement point instead of a big filled circle.
       var body = document.createElementNS(svgNs, 'g');
       body.setAttribute('class', 'marker__body');
       var shapeSvg = DATA.componentShapes && DATA.componentShapes[entry.designator];
@@ -610,10 +626,12 @@
         shapeGroup.innerHTML = shapeSvg;
         body.appendChild(shapeGroup);
       } else {
-        var circle = document.createElementNS(svgNs, 'circle');
-        circle.setAttribute('cx', x); circle.setAttribute('cy', y); circle.setAttribute('r', 0.95);
-        circle.setAttribute('fill', 'currentColor');
-        body.appendChild(circle);
+        var bodySize = 0.5;
+        var rect = document.createElementNS(svgNs, 'rect');
+        rect.setAttribute('x', x - bodySize / 2); rect.setAttribute('y', y - bodySize / 2);
+        rect.setAttribute('width', bodySize); rect.setAttribute('height', bodySize);
+        rect.setAttribute('fill', 'currentColor');
+        body.appendChild(rect);
       }
       body.style.color = statusFillForKey(entry.key);
 
