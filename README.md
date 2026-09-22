@@ -195,11 +195,15 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
   jednostką w nazwie, np. `Center-X(mil)`), `Rotation`, `Layer`/`Side` (`Top`/`Bottom`). Standardowy
   eksport z KiCad/Altium/Eagle; delimiter (przecinek/tabulator/średnik) wykrywany automatycznie, a gdy
   żadnego nie ma — jak we własnym formacie KiCada (`Ref  Val  Package  PosX  PosY  Rot  Side`,
-  kolumny wyrównane spacjami, bez separatora) — kolumny są dzielone po dowolnym ciągu białych
-  znaków. Altium często dodaje przed właściwym nagłówkiem linię tytułową/datę, a KiCad dodatkowo
-  poprzedza sam nagłówek znakiem `#` (`# Ref  Val  ...`) — przeszukiwane jest pierwsze ~20 niepustych
-  linii pliku (z tymczasowo zdjętym `#`) w poszukiwaniu tej z Designator+X+Y, więc żaden z tych
-  formatów nie przeszkadza.
+  kolumny wyrównane spacjami, bez separatora) albo w ASCII-owym raporcie Altium (`Free Format Pick
+  and Place data`, też kolumny wyrównane spacjami, ale pola tekstowe typu Comment/Description są
+  dodatkowo ujęte w cudzysłów, bo mogą same zawierać spacje i przecinki, np. `"TERM BLOCK HDR 2POS
+  3.5MM"`) — kolumny są dzielone po dowolnym ciągu białych znaków **z poszanowaniem takich
+  cudzysłowów** (spacja/przecinek wewnątrz `"..."` nie jest traktowana jako koniec kolumny). Altium
+  często dodaje przed właściwym nagłówkiem linię tytułową/datę, a KiCad dodatkowo poprzedza sam
+  nagłówek znakiem `#` (`# Ref  Val  ...`) — przeszukiwane jest pierwsze ~20 niepustych linii pliku
+  (z tymczasowo zdjętym `#`) w poszukiwaniu tej z Designator+X+Y, więc żaden z tych formatów nie
+  przeszkadza.
   Jeśli w pliku z delimiterem (np. przecinkiem) trafi się wiersz z komponentem, którego pole
   Comment/Value/Description samo zawiera ten znak bez ujęcia w cudzysłów (np. `GSM MODULE, 802.11
   b/g/n`), taki wiersz ma więcej pól niż nagłówek — kolumny X/Y "rozjeżdżają się" i bez obsługi tego
@@ -297,9 +301,17 @@ pick-and-place) dla każdego wariantu. GerbertoHTML wykrywa to automatycznie:
 - Analogicznie dla kilku plików pick-and-place, o ile nie wyglądają na zwykły podział Top/Bottom
   (wtedy nadal są łączone jak dotychczas) — każdy dopasowywany jest do wariantu BOM o tej samej lub
   podobnej nazwie. Gdy dopasowania po nazwie zabraknie dla dokładnie jednego wariantu BOM i dokładnie
-  jednego pliku pick-and-place, są parowane jako ostatnia deska ratunku; poza tym przypadkiem
-  niesparowany wariant po prostu wymaga ręcznego ustawienia pozycji komponentów w raporcie (jak przy
-  braku pick-and-place w ogóle).
+  jednego pliku pick-and-place, są parowane jako ostatnia deska ratunku.
+  Dla wariantów, których wciąż nie da się dopasować po nazwie (np. nazwy plików BOM i
+  pick-and-place w ogóle się nie pokrywają), narzędzie sprawdza **rzeczywistą zawartość** — ile
+  oznaczeń (designators) z danego wariantu BOM faktycznie występuje w każdym pozostałym pliku
+  pick-and-place — i dopasowuje automatycznie, gdy jeden plik wyraźnie wygrywa tym pokryciem.
+  Gdy to również jest niejednoznaczne (remis albo brak przewagi), a narzędzie jest uruchomione w
+  normalnym terminalu, **zapyta wprost**, który plik pick-and-place pasuje do którego wariantu
+  (z pokazanym % pokrycia oznaczeń dla każdego kandydata) — Enter pomija dopasowanie dla tego
+  wariantu. Bez odpowiedzi (np. `--non-interactive` albo uruchomienie bez terminala) niesparowany
+  wariant po prostu wymaga ręcznego ustawienia pozycji komponentów w raporcie (jak przy braku
+  pick-and-place w ogóle).
 - W konsoli pojawi się ostrzeżenie z listą wykrytych wariantów i wynikiem dopasowania
   pick-and-place — warto to sprawdzić, zwłaszcza gdy nazwy wariantów nie są oczywiste (np. osobny
   "Mechanical BOM" z akcesoriami mechanicznymi, a nie prawdziwy wariant montażu, też może zostać tu

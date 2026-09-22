@@ -123,15 +123,51 @@ def _looks_like_placement_header(fields: list[str]) -> bool:
     return has_designator and has_x and has_y
 
 
+def _split_whitespace_respecting_quotes(line: str) -> list[str]:
+    """Splits on runs of whitespace like str.split(), except a '"'-quoted
+    span is kept as one token even when it contains spaces or commas —
+    needed for Altium's ASCII pick-and-place report, which pads columns
+    with whitespace instead of a real delimiter but still quotes free-text
+    fields such as Comment/Description (e.g. '"TERM BLOCK HDR 2POS
+    3.5MM"'). A plain line.split() would shred that into five separate
+    columns ("TERM", "BLOCK", "HDR", "2POS", "3.5MM") and shift every
+    column after it — including X/Y — which is exactly what produced
+    garbage positions before this was quote-aware.
+    """
+    tokens: list[str] = []
+    i, n = 0, len(line)
+    while i < n:
+        while i < n and line[i].isspace():
+            i += 1
+        if i >= n:
+            break
+        if line[i] == '"':
+            end = line.find('"', i + 1)
+            if end == -1:
+                tokens.append(line[i + 1 :])
+                i = n
+            else:
+                tokens.append(line[i + 1 : end])
+                i = end + 1
+        else:
+            j = i
+            while j < n and not line[j].isspace():
+                j += 1
+            tokens.append(line[i:j])
+            i = j
+    return tokens
+
+
 def _split_line(line: str, mode: tuple) -> Optional[list[str]]:
     """Splits one data/header line per a mode from _detect_header: either
     ('delim', <char>) for a real delimiter, or ('whitespace',) for KiCad's
-    ASCII position-file export, which pads columns with a run of spaces
-    instead of using one."""
+    or Altium's ASCII position-file export, which pads columns with a run
+    of spaces instead of using one (Altium's additionally quotes free-text
+    fields, see _split_whitespace_respecting_quotes)."""
     if mode[0] == "delim":
         row = next(csv.reader(io.StringIO(line), delimiter=mode[1]), None)
         return [c.strip() for c in row] if row else None
-    parts = line.split()
+    parts = _split_whitespace_respecting_quotes(line)
     return parts or None
 
 

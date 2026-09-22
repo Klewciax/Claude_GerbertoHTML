@@ -27,7 +27,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from .bom import _compact, _normalize_key, iter_xlsx_header_candidates, looks_like_designator_header
+from .bom import _compact, _normalize_key, iter_xlsx_header_candidates, looks_like_designator_header, parse_bom_file
+from .placement import _split_whitespace_respecting_quotes, parse_placement_file
 
 GERBER_EXTENSIONS = {
     # Generic / KiCad (layer identity comes from the filename, not the extension)
@@ -95,9 +96,10 @@ def _iter_text_header_candidates(path: Path, max_lines: int = _HEADER_SCAN_LINES
             row = next(csv.reader(io.StringIO(candidate), delimiter=delimiter), None)
             fields = [c.strip() for c in row] if row else None
         else:
-            # No conventional delimiter -- KiCad pads columns with a run of
-            # spaces instead of using one.
-            fields = candidate.split() or None
+            # No conventional delimiter -- KiCad/Altium pad columns with a
+            # run of spaces instead of using one (Altium additionally quotes
+            # free-text fields, see _split_whitespace_respecting_quotes).
+            fields = _split_whitespace_respecting_quotes(candidate) or None
         if fields and len(fields) >= 2:
             yield fields
 
@@ -238,6 +240,108 @@ def _pair_variant_labels(bom_labels: dict[Path, str], pnp_labels: dict[Path, str
     return pairing
 
 
+def _designator_overlap_score(bom_designators: set[str], pnp_designators: set[str]) -> float:
+    """Fraction of a BOM variant's own designators that actually appear in
+    a candidate pick-and-place file — a much stronger signal than filename
+    wording once that's failed to pick a match, since it's checking the
+    real content of both files against each other."""
+    if not bom_designators or not pnp_designators:
+        return 0.0
+    return len(bom_designators & pnp_designators) / len(bom_designators)
+
+
+def _prompt_variant_pnp_choice(bom_label: str, candidates: list[tuple[Path, float]], project_dir: Path) -> Optional[Path]:
+    """Asks which pick-and-place file (if any) belongs to a BOM variant
+    that neither filename wording nor designator overlap could confidently
+    pick for on their own — shown with each candidate's overlap score as a
+    hint. Returns None (leave unmatched -> manual positioning) on a blank
+    answer, EOF, or Ctrl-C."""
+    try:
+        rel_label = str(Path(bom_label))
+    except (TypeError, ValueError):
+        rel_label = bom_label
+    print(f"\nNie udało się jednoznacznie dopasować pliku pick-and-place do wariantu BOM '{rel_label}'.", file=sys.stderr)
+    print("Kandydaci (z pokryciem oznaczeń tego wariantu):", file=sys.stderr)
+    for i, (path, score) in enumerate(candidates, start=1):
+        try:
+            rel = str(path.relative_to(project_dir))
+        except ValueError:
+            rel = str(path)
+        print(f"  [{i}] {rel} (pokrycie oznaczeń: {score:.0%})", file=sys.stderr)
+    while True:
+        try:
+            choice = input(f"  Który plik pasuje do wariantu '{bom_label}'? [numer / Enter = żaden]: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            return None
+        if choice == "":
+            return None
+        if choice.isdigit() and 1 <= int(choice) <= len(candidates):
+            return candidates[int(choice) - 1][0]
+        print("  Nie rozpoznano odpowiedzi — wpisz numer z listy albo wciśnij Enter, by pominąć.", file=sys.stderr)
+
+
+def _resolve_unmatched_variants(
+    result: "DiscoveryResult",
+    pairing: dict[str, Path],
+    pnp_labels: dict[Path, str],
+    project_dir: Path,
+    interactive: bool,
+) -> None:
+    """For BOM variants that filename-based pairing (_pair_variant_labels)
+    couldn't resolve, falls back to checking which remaining pick-and-place
+    candidate actually shares the most designators with that variant's own
+    BOM — real content, not naming convention. When that's still not
+    decisive, asks interactively (in a real terminal) which file to use,
+    instead of silently leaving the variant with no positions at all.
+    Mutates `pairing` in place.
+    """
+    unmatched_bom = sorted(set(result.bom_variants) - set(pairing))
+    remaining_pnp = [p for p in pnp_labels if p not in pairing.values()]
+    if not unmatched_bom or not remaining_pnp:
+        return
+
+    bom_designator_sets: dict[str, set[str]] = {}
+    for label in unmatched_bom:
+        components, _ = parse_bom_file(result.bom_variants[label])
+        bom_designator_sets[label] = {d for c in components for d in c.designators}
+
+    pnp_designator_sets: dict[Path, set[str]] = {}
+    for p in remaining_pnp:
+        placements, _ = parse_placement_file(str(p))
+        pnp_designator_sets[p] = {pl.designator for pl in placements}
+
+    for label in unmatched_bom:
+        if not remaining_pnp:
+            break
+        scored = sorted(
+            ((p, _designator_overlap_score(bom_designator_sets[label], pnp_designator_sets[p])) for p in remaining_pnp),
+            key=lambda t: -t[1],
+        )
+        scored = [(p, s) for p, s in scored if s > 0]
+        chosen: Optional[Path] = None
+        if scored:
+            best_path, best_score = scored[0]
+            runner_up = scored[1][1] if len(scored) > 1 else 0.0
+            if best_score >= 0.6 and best_score > runner_up * 1.5:
+                chosen = best_path
+                result.warnings.append(
+                    f"Dopasowano plik pick-and-place do wariantu '{label}' po zawartości oznaczeń "
+                    f"(pokrycie {best_score:.0%}) — nazwa pliku sama w sobie nie była jednoznaczna."
+                )
+            elif interactive and sys.stdin.isatty():
+                chosen = _prompt_variant_pnp_choice(label, scored, project_dir)
+        elif interactive and sys.stdin.isatty() and remaining_pnp:
+            # No overlap at all with any remaining file -- still offer the
+            # choice (0% shown) rather than assuming none of them apply;
+            # the person running this may know something the designators
+            # alone don't show (e.g. a not-yet-populated variant).
+            chosen = _prompt_variant_pnp_choice(label, [(p, 0.0) for p in remaining_pnp], project_dir)
+
+        if chosen is not None:
+            pairing[label] = chosen
+            remaining_pnp.remove(chosen)
+
+
 @dataclass
 class DiscoveryResult:
     gerber_paths: list[str] = field(default_factory=list)
@@ -371,12 +475,16 @@ def discover_project_files(project_dir: Path, interactive: bool = True) -> Disco
         variant_names = ", ".join(sorted(result.bom_variants))
         if pnp_labels:
             pairing = _pair_variant_labels(bom_labels, pnp_labels)
+            name_matched = sorted(pairing)
+            _resolve_unmatched_variants(result, pairing, pnp_labels, project_dir, interactive)
             for bom_label, pnp_path in pairing.items():
                 result.pnp_variants[bom_label] = [str(pnp_path)]
+            content_matched = sorted(set(pairing) - set(name_matched))
             unpaired = sorted(set(result.bom_variants) - set(pairing))
             result.warnings.append(
                 f"Wykryto {len(bom_labels)} wariantów montażu ({variant_names}) — pick-and-place dopasowano "
-                f"automatycznie po nazwie dla: {', '.join(sorted(pairing)) or '(brak)'}."
+                f"automatycznie po nazwie dla: {', '.join(name_matched) or '(brak)'}."
+                + (f" Dopasowano po zawartości oznaczeń: {', '.join(content_matched)}." if content_matched else "")
                 + (f" Bez dopasowania (pozycjonowanie ręczne): {', '.join(unpaired)}." if unpaired else "")
                 + " Wybór wariantu montażu jest dostępny w wygenerowanym raporcie."
             )
