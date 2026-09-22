@@ -675,7 +675,7 @@
 
   layerPanelToggleBtn.addEventListener('click', function () {
     var isOpen = layerPanel.style.display !== 'none';
-    layerPanel.style.display = isOpen ? 'none' : 'block';
+    layerPanel.style.display = isOpen ? 'none' : 'flex';
   });
   layerPanelCloseBtn.addEventListener('click', function () {
     layerPanel.style.display = 'none';
