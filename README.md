@@ -7,8 +7,8 @@ Narzędzie CLI w Pythonie: wskazujesz pliki **Gerber**, **BOM** (CSV/XML) i opcj
 
 - **Assembly** — lista komponentów z BOM sprzężona dwustronnie z wizualizacją płytki (zoom/pan),
   checkboxy Dostarczono/Zamontowano, ręczne pozycjonowanie komponentów bez danych z pick-and-place.
-- **Traceability** — numery sampli, wspólny stos przeróbek (rework), notatki per sampel, zdjęcia
-  dołączone do każdego sampla (dowód wykonanej przeróbki).
+- **Traceability** — numery sampli, wspólny stos przeróbek (rework) ze zdjęciami dołączonymi do
+  każdej przeróbki (dowód/instrukcja jej wykonania), notatki per sampel.
 
 Wygenerowany plik `report.html` można otworzyć bezpośrednio w przeglądarce (dwuklik, bez serwera),
 wysłać mailem, dołączyć do dokumentacji partii produkcyjnej albo zarchiwizować. Jest w pełni
@@ -365,19 +365,22 @@ dotychczasowym działaniu.
 
 ## Zdjęcia przy przeróbkach (Traceability)
 
-Każda karta sampla w zakładce Traceability ma sekcję zdjęć: przycisk **„📷 Dodaj zdjęcie”** otwiera
-wybór plików (można wybrać kilka naraz), a dodane zdjęcia pokazują się jako miniaturki obok siebie.
-Kliknięcie miniaturki otwiera zdjęcie w pełnym rozmiarze (lightbox); mały przycisk „✕” na miniaturce
-usuwa zdjęcie.
+Każda pozycja na **wspólnej liście przeróbek** (po lewej stronie zakładki Traceability, patrz sekcja
+"Grupowanie..." wyżej) ma sekcję zdjęć: przycisk **„📷 Dodaj zdjęcie”** otwiera wybór plików (można
+wybrać kilka naraz), a dodane zdjęcia pokazują się jako miniaturki obok siebie. Kliknięcie miniaturki
+otwiera zdjęcie w pełnym rozmiarze (lightbox); mały przycisk „✕” na miniaturce usuwa zdjęcie. Ponieważ
+lista przeróbek jest wspólna dla wszystkich sampli, zdjęcie dodane do danej przeróbki (np. zrzut
+pokazujący jak wygląda dana naprawa) jest widoczne przy tej przeróbce niezależnie od tego, przy ilu
+samplach zostanie ona odznaczona jako wykonana.
 
 - Zdjęcia są **skalowane i kompresowane w przeglądarce** przed zapisaniem (maks. 1280px dłuższego boku,
   JPEG jakości ok. 72%) — typowe zdjęcie z telefonu (kilka MB) trafia do stanu jako kilkadziesiąt-kilkaset
   KB. Dzieje się to lokalnie, bez wysyłania czegokolwiek na zewnątrz.
-- Zdjęcia są częścią stanu sampla, więc podlegają tym samym zasadom co reszta: zapisują się w
+- Zdjęcia są częścią stanu przeróbki, więc podlegają tym samym zasadom co reszta: zapisują się w
   `localStorage` i są przenoszone przez eksport/import pliku stanu (patrz wyżej) razem z resztą danych.
   **To jednak oznacza, że przy wielu zdjęciach plik eksportu stanu przestaje być "mały"** — kilkanaście
-  zdjęć na kilku samplach to już potencjalnie kilka MB, więc przy przekazywaniu pliku stanu mailem warto
-  to mieć na uwadze (SharePoint/dysk sieciowy/USB obsłużą to bez problemu).
+  zdjęć na kilku przeróbkach to już potencjalnie kilka MB, więc przy przekazywaniu pliku stanu mailem
+  warto to mieć na uwadze (SharePoint/dysk sieciowy/USB obsłużą to bez problemu).
 - `localStorage` przeglądarki ma ograniczony rozmiar (typowo 5–10 MB na origin) — jeśli zapis się nie
   powiedzie (np. za dużo zdjęć), na dole strony pojawi się czerwony baner z ostrzeżeniem zamiast po
   cichu tracić dane; rozwiązanie to usunięcie części zdjęć albo eksport stanu do pliku, zanim

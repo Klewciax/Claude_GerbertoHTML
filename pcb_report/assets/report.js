@@ -316,12 +316,12 @@
     return { manualPlacements: {}, reworks: [], samples: [], variantProgress: {}, groupByPart: true, activeVariant: null, layerVisibility: {}, lastModified: null };
   }
 
-  // Samples saved/exported before photo attachments existed have no
+  // Reworks saved/exported before photo attachments existed have no
   // `photos` field at all -- default it to an empty array so rendering and
-  // adding photos to an old sample doesn't need a null-check everywhere.
-  function normalizeSamples(samples) {
-    return (samples || []).map(function (s) {
-      return Object.assign({ photos: [] }, s);
+  // adding photos to an old rework doesn't need a null-check everywhere.
+  function normalizeReworks(reworks) {
+    return (reworks || []).map(function (r) {
+      return Object.assign({ photos: [] }, r);
     });
   }
 
@@ -339,8 +339,8 @@
       }
       return {
         manualPlacements: parsed.manualPlacements || {},
-        reworks: parsed.reworks || [],
-        samples: normalizeSamples(parsed.samples),
+        reworks: normalizeReworks(parsed.reworks),
+        samples: parsed.samples || [],
         variantProgress: variantProgress,
         groupByPart: parsed.groupByPart != null ? parsed.groupByPart : true,
         activeVariant: parsed.activeVariant || null,
@@ -1157,12 +1157,40 @@
   var sampleGrid = document.getElementById('sampleGrid');
   var sampleEmpty = document.getElementById('sampleEmpty');
 
+  function reworkPhotosHtml(rework) {
+    var photos = rework.photos || [];
+    var gridHtml = photos.length === 0 ? '' : (
+      '<div class="rework-pool__photo-grid">' +
+      photos.map(function (p) {
+        return (
+          '<div class="rework-pool__photo">' +
+          '<img src="' + p.dataUrl + '" data-open-photo="' + p.id + '" data-photo-rework="' + rework.id + '" />' +
+          '<button type="button" class="rework-pool__photo-remove" data-remove-photo="' + p.id + '" data-photo-rework="' + rework.id + '" title="' + escapeHtml(t('photo_remove_title')) + '">✕</button>' +
+          '</div>'
+        );
+      }).join('') +
+      '</div>'
+    );
+    return (
+      gridHtml +
+      '<label class="rework-pool__photo-add">' + escapeHtml(t('photo_add_btn')) +
+      '<input type="file" accept="image/*" multiple data-photo-input="' + rework.id + '" style="display:none;" />' +
+      '</label>'
+    );
+  }
+
   function renderReworkPool() {
     if (state.reworks.length === 0) {
       reworkList.innerHTML = '<li class="rework-pool__empty">' + escapeHtml(t('rework_empty')) + '</li>';
     } else {
       reworkList.innerHTML = state.reworks.map(function (r) {
-        return '<li><span>' + escapeHtml(r.label) + '</span><button type="button" data-id="' + r.id + '" title="' + escapeHtml(t('rework_remove_title')) + '">✕</button></li>';
+        return (
+          '<li class="rework-pool__item">' +
+          '<div class="rework-pool__item-row"><span>' + escapeHtml(r.label) + '</span>' +
+          '<button type="button" data-id="' + r.id + '" title="' + escapeHtml(t('rework_remove_title')) + '">✕</button></div>' +
+          reworkPhotosHtml(r) +
+          '</li>'
+        );
       }).join('');
     }
   }
@@ -1171,7 +1199,7 @@
     e.preventDefault();
     var label = reworkInput.value.trim();
     if (!label) return;
-    state.reworks.push({ id: uid('rw'), label: label });
+    state.reworks.push({ id: uid('rw'), label: label, photos: [] });
     reworkInput.value = '';
     renderReworkPool();
     renderSamples();
@@ -1180,36 +1208,40 @@
 
   reworkList.addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-id]');
-    if (!btn) return;
-    var id = btn.dataset.id;
-    state.reworks = state.reworks.filter(function (r) { return r.id !== id; });
-    state.samples.forEach(function (s) { s.reworkIds = s.reworkIds.filter(function (rid) { return rid !== id; }); });
-    renderReworkPool();
-    renderSamples();
-    persist();
+    if (btn) {
+      var id = btn.dataset.id;
+      state.reworks = state.reworks.filter(function (r) { return r.id !== id; });
+      state.samples.forEach(function (s) { s.reworkIds = s.reworkIds.filter(function (rid) { return rid !== id; }); });
+      renderReworkPool();
+      renderSamples();
+      persist();
+      return;
+    }
+    var removePhotoBtn = e.target.closest('[data-remove-photo]');
+    if (removePhotoBtn) {
+      var rework = state.reworks.find(function (r) { return r.id === removePhotoBtn.dataset.photoRework; });
+      if (rework) {
+        rework.photos = (rework.photos || []).filter(function (p) { return p.id !== removePhotoBtn.dataset.removePhoto; });
+        renderReworkPool();
+        persist();
+      }
+      return;
+    }
+    var photoImg = e.target.closest('img[data-open-photo]');
+    if (photoImg) {
+      var owningRework = state.reworks.find(function (r) { return r.id === photoImg.dataset.photoRework; });
+      var photo = owningRework && (owningRework.photos || []).find(function (p) { return p.id === photoImg.dataset.openPhoto; });
+      if (photo) openPhotoLightbox(photo.dataUrl);
+    }
   });
 
-  function samplePhotosHtml(sample) {
-    var photos = sample.photos || [];
-    var gridHtml = photos.length === 0 ? '' : (
-      '<div class="sample-card__photo-grid">' +
-      photos.map(function (p) {
-        return (
-          '<div class="sample-card__photo">' +
-          '<img src="' + p.dataUrl + '" data-open-photo="' + p.id + '" data-photo-sample="' + sample.id + '" />' +
-          '<button type="button" class="sample-card__photo-remove" data-remove-photo="' + p.id + '" data-photo-sample="' + sample.id + '" title="' + escapeHtml(t('photo_remove_title')) + '">✕</button>' +
-          '</div>'
-        );
-      }).join('') +
-      '</div>'
-    );
-    return (
-      gridHtml +
-      '<label class="sample-card__photo-add">' + escapeHtml(t('photo_add_btn')) +
-      '<input type="file" accept="image/*" multiple data-photo-input="' + sample.id + '" style="display:none;" />' +
-      '</label>'
-    );
-  }
+  reworkList.addEventListener('change', function (e) {
+    var photoInput = e.target.closest('input[data-photo-input]');
+    if (photoInput && photoInput.files && photoInput.files.length) {
+      addPhotosToRework(photoInput.dataset.photoInput, photoInput.files);
+      photoInput.value = '';
+    }
+  });
 
   function renderSamples() {
     if (state.samples.length === 0) {
@@ -1231,7 +1263,6 @@
         '<button type="button" data-remove-sample="' + sample.id + '" title="' + escapeHtml(t('sample_remove_title')) + '">✕</button></div>' +
         '<div class="sample-card__reworks">' + reworksHtml + '</div>' +
         '<textarea class="sample-card__notes" data-notes="' + sample.id + '" placeholder="' + escapeHtml(t('sample_notes_placeholder')) + '">' + escapeHtml(sample.notes) + '</textarea>' +
-        samplePhotosHtml(sample) +
         '</div>'
       );
     }).join('');
@@ -1267,17 +1298,17 @@
     });
   }
 
-  function addPhotosToSample(sampleId, fileList) {
-    var sample = state.samples.find(function (s) { return s.id === sampleId; });
-    if (!sample) return;
+  function addPhotosToRework(reworkId, fileList) {
+    var rework = state.reworks.find(function (r) { return r.id === reworkId; });
+    if (!rework) return;
     var files = Array.prototype.filter.call(fileList, function (f) { return f.type.indexOf('image/') === 0; });
     if (files.length === 0) return;
     Promise.all(files.map(function (f) { return downscaleImageFile(f).catch(function () { return null; }); }))
       .then(function (dataUrls) {
         dataUrls.forEach(function (dataUrl) {
-          if (dataUrl) sample.photos.push({ id: uid('photo'), dataUrl: dataUrl });
+          if (dataUrl) rework.photos.push({ id: uid('photo'), dataUrl: dataUrl });
         });
-        renderSamples();
+        renderReworkPool();
         persist();
       });
   }
@@ -1302,7 +1333,7 @@
     e.preventDefault();
     var name = sampleInput.value.trim();
     if (!name) return;
-    state.samples.push({ id: uid('smp'), name: name, reworkIds: [], notes: '', photos: [] });
+    state.samples.push({ id: uid('smp'), name: name, reworkIds: [], notes: '' });
     sampleInput.value = '';
     renderSamples();
     persist();
@@ -1315,23 +1346,6 @@
       state.samples = state.samples.filter(function (s) { return s.id !== id; });
       renderSamples();
       persist();
-      return;
-    }
-    var removePhotoBtn = e.target.closest('[data-remove-photo]');
-    if (removePhotoBtn) {
-      var photoSample = state.samples.find(function (s) { return s.id === removePhotoBtn.dataset.photoSample; });
-      if (photoSample) {
-        photoSample.photos = (photoSample.photos || []).filter(function (p) { return p.id !== removePhotoBtn.dataset.removePhoto; });
-        renderSamples();
-        persist();
-      }
-      return;
-    }
-    var photoImg = e.target.closest('img[data-open-photo]');
-    if (photoImg) {
-      var owningSample = state.samples.find(function (s) { return s.id === photoImg.dataset.photoSample; });
-      var photo = owningSample && (owningSample.photos || []).find(function (p) { return p.id === photoImg.dataset.openPhoto; });
-      if (photo) openPhotoLightbox(photo.dataUrl);
     }
   });
 
@@ -1344,12 +1358,6 @@
       if (e.target.checked && idx === -1) sample.reworkIds.push(reworkId);
       if (!e.target.checked && idx !== -1) sample.reworkIds.splice(idx, 1);
       persist();
-      return;
-    }
-    var photoInput = e.target.closest('input[data-photo-input]');
-    if (photoInput && photoInput.files && photoInput.files.length) {
-      addPhotosToSample(photoInput.dataset.photoInput, photoInput.files);
-      photoInput.value = '';
     }
   });
 
@@ -1428,8 +1436,8 @@
       }
 
       state.placements = Object.assign({}, DATA.variants[state.activeVariant].placements, parsed.manualPlacements || {});
-      state.reworks = parsed.reworks || [];
-      state.samples = normalizeSamples(parsed.samples);
+      state.reworks = normalizeReworks(parsed.reworks);
+      state.samples = parsed.samples || [];
       var importedVariantProgress = parsed.variantProgress || {};
       if (!parsed.variantProgress && parsed.stock) {
         importedVariantProgress[DATA.defaultVariant] = parsed.stock;

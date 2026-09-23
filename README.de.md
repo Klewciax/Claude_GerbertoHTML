@@ -9,8 +9,8 @@ mit zwei Reitern:
 - **Assembly** — Bauteilliste aus der Stückliste, zweiseitig verknüpft mit der Platinenvisualisierung
   (Zoom/Verschieben), Checkboxen für Geliefert/Bestückt, manuelle Positionierung von Bauteilen ohne
   Pick-and-Place-Daten.
-- **Traceability** — Musternummern, gemeinsamer Nacharbeits-Pool (Rework), Notizen pro Muster, Fotos an
-  jedes Muster angehängt (als Nachweis der durchgeführten Nacharbeit).
+- **Traceability** — Musternummern, gemeinsamer Nacharbeits-Pool (Rework) mit Fotos an jeder
+  Nacharbeit (als Nachweis/Anleitung ihrer Durchführung), Notizen pro Muster.
 
 Die erzeugte Datei `report.html` lässt sich direkt im Browser öffnen (Doppelklick, ohne Server), per
 E-Mail versenden, der Fertigungsdokumentation beilegen oder archivieren. Sie ist voll interaktiv —
@@ -388,20 +388,24 @@ bisherigen Verhalten ändert sich nichts.
 
 ## Fotos bei Nacharbeiten (Traceability)
 
-Jede Musterkarte im Traceability-Reiter hat einen Fotobereich: die Schaltfläche **„📷 Foto
-hinzufügen“** öffnet die Dateiauswahl (mehrere Dateien auf einmal möglich), und hinzugefügte Fotos
-erscheinen als Miniaturansichten nebeneinander. Ein Klick auf die Miniaturansicht öffnet das Foto in
-voller Größe (Lightbox); eine kleine „✕“-Schaltfläche auf der Miniaturansicht entfernt das Foto.
+Jeder Eintrag im **gemeinsamen Nacharbeits-Pool** (links im Traceability-Reiter, siehe Abschnitt
+„Gruppierung...“ oben) hat einen Fotobereich: die Schaltfläche **„📷 Foto hinzufügen“** öffnet die
+Dateiauswahl (mehrere Dateien auf einmal möglich), und hinzugefügte Fotos erscheinen als
+Miniaturansichten nebeneinander. Ein Klick auf die Miniaturansicht öffnet das Foto in voller Größe
+(Lightbox); eine kleine „✕“-Schaltfläche auf der Miniaturansicht entfernt das Foto. Da der
+Nacharbeits-Pool für alle Muster gemeinsam ist, ist ein an eine Nacharbeit angehängtes Foto (z. B. ein
+Bild, das zeigt, wie diese Reparatur aussieht) bei dieser Nacharbeit sichtbar, unabhängig davon, bei
+wie vielen Mustern sie als durchgeführt markiert wird.
 
 - Fotos werden **im Browser skaliert und komprimiert**, bevor sie gespeichert werden (max. 1280 px auf
   der längeren Seite, JPEG-Qualität ca. 72 %) — ein typisches Handyfoto (mehrere MB) landet als
   einige Dutzend bis einige Hundert KB im Status. Das geschieht lokal, ohne dass etwas nach außen
   gesendet wird.
-- Fotos sind Teil des Musterstatus und unterliegen denselben Regeln wie der Rest: Sie werden im
+- Fotos sind Teil des Nacharbeits-Status und unterliegen denselben Regeln wie der Rest: Sie werden im
   `localStorage` gespeichert und beim Export/Import der Statusdatei (siehe oben) zusammen mit den
   übrigen Daten übertragen. **Das bedeutet aber, dass die exportierte Statusdatei bei vielen Fotos
-  nicht mehr „klein“ ist** — ein Dutzend Fotos auf mehreren Mustern kann bereits mehrere MB ergeben,
-  was beim Versenden der Statusdatei per E-Mail zu beachten ist (SharePoint/Netzlaufwerk/USB-Stick
+  nicht mehr „klein“ ist** — ein Dutzend Fotos auf mehreren Nacharbeiten kann bereits mehrere MB
+  ergeben, was beim Versenden der Statusdatei per E-Mail zu beachten ist (SharePoint/Netzlaufwerk/USB-Stick
   kommen damit problemlos zurecht).
 - Der `localStorage` des Browsers hat eine begrenzte Größe (typisch 5–10 MB pro Origin) — schlägt das
   Speichern fehl (z. B. zu viele Fotos), erscheint unten auf der Seite ein rotes Warnbanner, statt
