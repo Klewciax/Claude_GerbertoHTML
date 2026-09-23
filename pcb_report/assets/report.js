@@ -89,6 +89,9 @@
       sample_no_reworks: 'Dodaj przeróbki do wspólnej listy.',
       sample_remove_title: 'Usuń sampel',
       sample_notes_placeholder: 'Uwagi dotyczące tego sampla…',
+      photo_add_btn: '📷 Dodaj zdjęcie',
+      photo_remove_title: 'Usuń zdjęcie',
+      persist_failed_warning: 'Nie udało się zapisać zmian lokalnie (localStorage) — prawdopodobnie brak miejsca (za dużo/za duże zdjęcia). Usuń część zdjęć albo wyeksportuj stan teraz, zanim zamkniesz kartę.',
       import_bad_json: 'Nie udało się odczytać pliku stanu: to nie jest poprawny plik JSON.',
       import_different_report: 'Ten plik stanu pochodzi z innego raportu (inne pliki Gerber/BOM) — oznaczenia mogą się nie zgadzać. Zaimportować mimo to?',
       import_older_confirm: 'Importowany plik jest STARSZY niż obecny stan w tej przeglądarce (obecny: {current}, w pliku: {imported}). Import nadpisze bieżące dane starszymi. Kontynuować?',
@@ -169,6 +172,9 @@
       sample_no_reworks: 'Füge Nacharbeiten zur gemeinsamen Liste hinzu.',
       sample_remove_title: 'Muster entfernen',
       sample_notes_placeholder: 'Anmerkungen zu diesem Muster…',
+      photo_add_btn: '📷 Foto hinzufügen',
+      photo_remove_title: 'Foto entfernen',
+      persist_failed_warning: 'Änderungen konnten lokal nicht gespeichert werden (localStorage) — vermutlich kein Speicherplatz mehr (zu viele/zu große Fotos). Entferne einige Fotos oder exportiere den Status jetzt, bevor du den Tab schließt.',
       import_bad_json: 'Statusdatei konnte nicht gelesen werden: keine gültige JSON-Datei.',
       import_different_report: 'Diese Statusdatei stammt aus einem anderen Bericht (andere Gerber-/BOM-Dateien) — Bezeichnungen stimmen möglicherweise nicht überein. Trotzdem importieren?',
       import_older_confirm: 'Die importierte Datei ist ÄLTER als der aktuelle Status in diesem Browser (aktuell: {current}, in der Datei: {imported}). Der Import überschreibt die aktuellen Daten mit älteren. Fortfahren?',
@@ -310,6 +316,15 @@
     return { manualPlacements: {}, reworks: [], samples: [], variantProgress: {}, groupByPart: true, activeVariant: null, layerVisibility: {}, lastModified: null };
   }
 
+  // Samples saved/exported before photo attachments existed have no
+  // `photos` field at all -- default it to an empty array so rendering and
+  // adding photos to an old sample doesn't need a null-check everywhere.
+  function normalizeSamples(samples) {
+    return (samples || []).map(function (s) {
+      return Object.assign({ photos: [] }, s);
+    });
+  }
+
   function loadPersisted() {
     try {
       var raw = window.localStorage.getItem(STORAGE_KEY);
@@ -325,7 +340,7 @@
       return {
         manualPlacements: parsed.manualPlacements || {},
         reworks: parsed.reworks || [],
-        samples: parsed.samples || [],
+        samples: normalizeSamples(parsed.samples),
         variantProgress: variantProgress,
         groupByPart: parsed.groupByPart != null ? parsed.groupByPart : true,
         activeVariant: parsed.activeVariant || null,
@@ -363,13 +378,33 @@
     };
   }
 
+  // A visible (not just console) warning when saving fails -- photos make
+  // hitting the localStorage quota a real possibility, and silently losing
+  // someone's just-added rework photos would be a much worse failure mode
+  // than a persistent on-page banner.
+  var persistWarningEl = null;
+  function showPersistWarning() {
+    if (!persistWarningEl) {
+      persistWarningEl = document.createElement('div');
+      persistWarningEl.className = 'persist-warning';
+      document.body.appendChild(persistWarningEl);
+    }
+    persistWarningEl.textContent = t('persist_failed_warning');
+    persistWarningEl.style.display = 'block';
+  }
+  function hidePersistWarning() {
+    if (persistWarningEl) persistWarningEl.style.display = 'none';
+  }
+
   function persist() {
     state.lastModified = new Date().toISOString();
     var payload = buildStatePayload();
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      hidePersistWarning();
     } catch (e) {
       console.warn('Nie udalo sie zapisac stanu (localStorage):', e);
+      showPersistWarning();
     }
   }
 
@@ -1154,6 +1189,28 @@
     persist();
   });
 
+  function samplePhotosHtml(sample) {
+    var photos = sample.photos || [];
+    var gridHtml = photos.length === 0 ? '' : (
+      '<div class="sample-card__photo-grid">' +
+      photos.map(function (p) {
+        return (
+          '<div class="sample-card__photo">' +
+          '<img src="' + p.dataUrl + '" data-open-photo="' + p.id + '" data-photo-sample="' + sample.id + '" />' +
+          '<button type="button" class="sample-card__photo-remove" data-remove-photo="' + p.id + '" data-photo-sample="' + sample.id + '" title="' + escapeHtml(t('photo_remove_title')) + '">✕</button>' +
+          '</div>'
+        );
+      }).join('') +
+      '</div>'
+    );
+    return (
+      gridHtml +
+      '<label class="sample-card__photo-add">' + escapeHtml(t('photo_add_btn')) +
+      '<input type="file" accept="image/*" multiple data-photo-input="' + sample.id + '" style="display:none;" />' +
+      '</label>'
+    );
+  }
+
   function renderSamples() {
     if (state.samples.length === 0) {
       sampleEmpty.style.display = 'block';
@@ -1174,16 +1231,78 @@
         '<button type="button" data-remove-sample="' + sample.id + '" title="' + escapeHtml(t('sample_remove_title')) + '">✕</button></div>' +
         '<div class="sample-card__reworks">' + reworksHtml + '</div>' +
         '<textarea class="sample-card__notes" data-notes="' + sample.id + '" placeholder="' + escapeHtml(t('sample_notes_placeholder')) + '">' + escapeHtml(sample.notes) + '</textarea>' +
+        samplePhotosHtml(sample) +
         '</div>'
       );
     }).join('');
   }
 
+  // Resizes/re-encodes a photo before it's stored -- raw phone photos are
+  // several MB each, and this state ends up in localStorage (real quota,
+  // typically 5-10MB total) and in the exported state .json (meant to stay
+  // small enough to email); a downscaled JPEG keeps a typical photo to
+  // tens of KB instead.
+  var PHOTO_MAX_DIMENSION = 1280;
+  var PHOTO_JPEG_QUALITY = 0.72;
+  function downscaleImageFile(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          var scale = Math.min(1, PHOTO_MAX_DIMENSION / Math.max(img.width, img.height));
+          var w = Math.max(1, Math.round(img.width * scale));
+          var h = Math.max(1, Math.round(img.height * scale));
+          var canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', PHOTO_JPEG_QUALITY));
+        };
+        img.onerror = function () { reject(new Error('image decode failed')); };
+        img.src = reader.result;
+      };
+      reader.onerror = function () { reject(reader.error); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function addPhotosToSample(sampleId, fileList) {
+    var sample = state.samples.find(function (s) { return s.id === sampleId; });
+    if (!sample) return;
+    var files = Array.prototype.filter.call(fileList, function (f) { return f.type.indexOf('image/') === 0; });
+    if (files.length === 0) return;
+    Promise.all(files.map(function (f) { return downscaleImageFile(f).catch(function () { return null; }); }))
+      .then(function (dataUrls) {
+        dataUrls.forEach(function (dataUrl) {
+          if (dataUrl) sample.photos.push({ id: uid('photo'), dataUrl: dataUrl });
+        });
+        renderSamples();
+        persist();
+      });
+  }
+
+  var photoLightbox = document.getElementById('photoLightbox');
+  var photoLightboxImg = document.getElementById('photoLightboxImg');
+  var photoLightboxCloseBtn = document.getElementById('photoLightboxCloseBtn');
+  function openPhotoLightbox(dataUrl) {
+    photoLightboxImg.src = dataUrl;
+    photoLightbox.style.display = 'flex';
+  }
+  function closePhotoLightbox() {
+    photoLightbox.style.display = 'none';
+    photoLightboxImg.src = '';
+  }
+  photoLightboxCloseBtn.addEventListener('click', closePhotoLightbox);
+  photoLightbox.addEventListener('click', function (e) {
+    if (e.target === photoLightbox) closePhotoLightbox();
+  });
+
   sampleForm.addEventListener('submit', function (e) {
     e.preventDefault();
     var name = sampleInput.value.trim();
     if (!name) return;
-    state.samples.push({ id: uid('smp'), name: name, reworkIds: [], notes: '' });
+    state.samples.push({ id: uid('smp'), name: name, reworkIds: [], notes: '', photos: [] });
     sampleInput.value = '';
     renderSamples();
     persist();
@@ -1196,6 +1315,23 @@
       state.samples = state.samples.filter(function (s) { return s.id !== id; });
       renderSamples();
       persist();
+      return;
+    }
+    var removePhotoBtn = e.target.closest('[data-remove-photo]');
+    if (removePhotoBtn) {
+      var photoSample = state.samples.find(function (s) { return s.id === removePhotoBtn.dataset.photoSample; });
+      if (photoSample) {
+        photoSample.photos = (photoSample.photos || []).filter(function (p) { return p.id !== removePhotoBtn.dataset.removePhoto; });
+        renderSamples();
+        persist();
+      }
+      return;
+    }
+    var photoImg = e.target.closest('img[data-open-photo]');
+    if (photoImg) {
+      var owningSample = state.samples.find(function (s) { return s.id === photoImg.dataset.photoSample; });
+      var photo = owningSample && (owningSample.photos || []).find(function (p) { return p.id === photoImg.dataset.openPhoto; });
+      if (photo) openPhotoLightbox(photo.dataUrl);
     }
   });
 
@@ -1208,6 +1344,12 @@
       if (e.target.checked && idx === -1) sample.reworkIds.push(reworkId);
       if (!e.target.checked && idx !== -1) sample.reworkIds.splice(idx, 1);
       persist();
+      return;
+    }
+    var photoInput = e.target.closest('input[data-photo-input]');
+    if (photoInput && photoInput.files && photoInput.files.length) {
+      addPhotosToSample(photoInput.dataset.photoInput, photoInput.files);
+      photoInput.value = '';
     }
   });
 
@@ -1287,7 +1429,7 @@
 
       state.placements = Object.assign({}, DATA.variants[state.activeVariant].placements, parsed.manualPlacements || {});
       state.reworks = parsed.reworks || [];
-      state.samples = parsed.samples || [];
+      state.samples = normalizeSamples(parsed.samples);
       var importedVariantProgress = parsed.variantProgress || {};
       if (!parsed.variantProgress && parsed.stock) {
         importedVariantProgress[DATA.defaultVariant] = parsed.stock;

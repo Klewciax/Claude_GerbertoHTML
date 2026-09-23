@@ -207,6 +207,11 @@ def build_report_html(
       </div>
     </section>
   </main>
+
+  <div class="photo-lightbox" id="photoLightbox" style="display:none;">
+    <button type="button" id="photoLightboxCloseBtn" class="photo-lightbox__close" data-i18n-title="close_title" title="Zamknij">✕</button>
+    <img id="photoLightboxImg" src="" alt="" />
+  </div>
 </div>
 
 <script type="application/json" id="report-data">{data_json}</script>

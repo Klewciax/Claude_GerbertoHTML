@@ -7,7 +7,8 @@ Narzędzie CLI w Pythonie: wskazujesz pliki **Gerber**, **BOM** (CSV/XML) i opcj
 
 - **Assembly** — lista komponentów z BOM sprzężona dwustronnie z wizualizacją płytki (zoom/pan),
   checkboxy Dostarczono/Zamontowano, ręczne pozycjonowanie komponentów bez danych z pick-and-place.
-- **Traceability** — numery sampli, wspólny stos przeróbek (rework), notatki per sampel.
+- **Traceability** — numery sampli, wspólny stos przeróbek (rework), notatki per sampel, zdjęcia
+  dołączone do każdego sampla (dowód wykonanej przeróbki).
 
 Wygenerowany plik `report.html` można otworzyć bezpośrednio w przeglądarce (dwuklik, bez serwera),
 wysłać mailem, dołączyć do dokumentacji partii produkcyjnej albo zarchiwizować. Jest w pełni
@@ -361,6 +362,26 @@ lista rozwijana **„Wariant montażu”**. Przełączenie jej:
 
 Gdy wykryto tylko jeden BOM (typowy przypadek), lista wariantów jest ukryta i nic się nie zmienia w
 dotychczasowym działaniu.
+
+## Zdjęcia przy przeróbkach (Traceability)
+
+Każda karta sampla w zakładce Traceability ma sekcję zdjęć: przycisk **„📷 Dodaj zdjęcie”** otwiera
+wybór plików (można wybrać kilka naraz), a dodane zdjęcia pokazują się jako miniaturki obok siebie.
+Kliknięcie miniaturki otwiera zdjęcie w pełnym rozmiarze (lightbox); mały przycisk „✕” na miniaturce
+usuwa zdjęcie.
+
+- Zdjęcia są **skalowane i kompresowane w przeglądarce** przed zapisaniem (maks. 1280px dłuższego boku,
+  JPEG jakości ok. 72%) — typowe zdjęcie z telefonu (kilka MB) trafia do stanu jako kilkadziesiąt-kilkaset
+  KB. Dzieje się to lokalnie, bez wysyłania czegokolwiek na zewnątrz.
+- Zdjęcia są częścią stanu sampla, więc podlegają tym samym zasadom co reszta: zapisują się w
+  `localStorage` i są przenoszone przez eksport/import pliku stanu (patrz wyżej) razem z resztą danych.
+  **To jednak oznacza, że przy wielu zdjęciach plik eksportu stanu przestaje być "mały"** — kilkanaście
+  zdjęć na kilku samplach to już potencjalnie kilka MB, więc przy przekazywaniu pliku stanu mailem warto
+  to mieć na uwadze (SharePoint/dysk sieciowy/USB obsłużą to bez problemu).
+- `localStorage` przeglądarki ma ograniczony rozmiar (typowo 5–10 MB na origin) — jeśli zapis się nie
+  powiedzie (np. za dużo zdjęć), na dole strony pojawi się czerwony baner z ostrzeżeniem zamiast po
+  cichu tracić dane; rozwiązanie to usunięcie części zdjęć albo eksport stanu do pliku, zanim
+  przeglądarka zostanie zamknięta.
 
 ## Architektura i uzasadnienie wyboru narzędzi
 
