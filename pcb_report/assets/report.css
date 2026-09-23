@@ -307,6 +307,24 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 }
 .rework-pool__photo-add:hover { border-color: var(--blue); color: var(--blue); }
 
+.software-pool { padding: 16px; border-top: 1px solid var(--gray-200); }
+.software-pool h2 { font-size: 0.95rem; margin: 0 0 8px; color: var(--navy); }
+.software-pool__hint { font-size: 0.72rem; color: var(--gray-500); margin: 0 0 12px; }
+.software-pool__form { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.software-pool__form input { padding: 8px 10px; border: 1px solid var(--gray-300); border-radius: 6px; }
+.software-pool__form button {
+  padding: 8px 16px; border-radius: 6px; border: none; background: var(--blue);
+  color: var(--white); font-weight: 600; font-size: 0.85rem;
+}
+.software-pool__list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.software-pool__item {
+  padding: 8px 10px; background: var(--gray-100); border-radius: 6px; font-size: 0.8rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.software-pool__item a { color: var(--blue); text-decoration: underline; }
+.software-pool__item button { border: none; background: transparent; color: var(--gray-500); font-size: 0.85rem; }
+.software-pool__empty { color: var(--gray-500); font-size: 0.8rem; }
+
 .sample-card {
   background: var(--white); border: 1px solid var(--gray-200); border-radius: 10px; padding: 14px;
   display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(11,37,69,0.06);
@@ -317,6 +335,10 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .sample-card__reworks { display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; padding-right: 4px; }
 .sample-card__rework-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--gray-700); }
 .sample-card__empty { font-size: 0.78rem; color: var(--gray-500); margin: 0; }
+.sample-card__software-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.sample-card__software { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--gray-700); }
+.sample-card__software select { padding: 4px 6px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 0.78rem; }
+.sample-card__software-download { color: var(--blue); font-size: 0.78rem; font-weight: 600; text-decoration: underline; }
 .sample-card__notes { min-height: 70px; padding: 8px; border: 1px solid var(--gray-300); border-radius: 6px; resize: vertical; font-size: 0.8rem; }
 
 .photo-lightbox {

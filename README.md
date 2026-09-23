@@ -8,7 +8,8 @@ Narzędzie CLI w Pythonie: wskazujesz pliki **Gerber**, **BOM** (CSV/XML) i opcj
 - **Assembly** — lista komponentów z BOM sprzężona dwustronnie z wizualizacją płytki (zoom/pan),
   checkboxy Dostarczono/Zamontowano, ręczne pozycjonowanie komponentów bez danych z pick-and-place.
 - **Traceability** — numery sampli, wspólny stos przeróbek (rework) ze zdjęciami dołączonymi do
-  każdej przeróbki (dowód/instrukcja jej wykonania), notatki per sampel.
+  każdej przeróbki (dowód/instrukcja jej wykonania), notatki per sampel, wspólna lista wersji
+  oprogramowania (z klikalnym linkiem do pobrania) przypisywana per sampel z listy rozwijanej.
 
 Wygenerowany plik `report.html` można otworzyć bezpośrednio w przeglądarce (dwuklik, bez serwera),
 wysłać mailem, dołączyć do dokumentacji partii produkcyjnej albo zarchiwizować. Jest w pełni
@@ -422,6 +423,27 @@ samplach zostanie ona odznaczona jako wykonana.
   powiedzie (np. za dużo zdjęć), na dole strony pojawi się czerwony baner z ostrzeżeniem zamiast po
   cichu tracić dane; rozwiązanie to usunięcie części zdjęć albo eksport stanu do pliku, zanim
   przeglądarka zostanie zamknięta.
+
+## Wersje oprogramowania (Traceability)
+
+Po lewej stronie zakładki Traceability, pod wspólną listą przeróbek, jest osobny panel **„Wersje
+oprogramowania”**: formularz z nazwą/numerem wersji (np. „Firmware v1.4.2”) i opcjonalnym linkiem do
+pobrania, oraz lista już dodanych wersji. Podobnie jak przeróbki, ta lista jest **wspólna dla całego
+raportu** — dodaje się ją raz, a potem przypisuje do konkretnych sampli.
+
+- Każdy sample ma teraz pole **„Oprogramowanie”** — listę rozwijaną z wszystkimi wersjami dodanymi do
+  wspólnego panelu (plus opcja „— brak —”). Wybór zapisuje, jaka wersja oprogramowania była
+  wgrana/testowana na danym samplu.
+- Jeśli wersja ma podany link, jest on **klikalny** — zarówno przy pozycji na wspólnej liście (nazwa
+  wersji to link), jak i przy samplu, do którego ją przypisano (przycisk „Pobierz” obok listy
+  rozwijanej) — otwiera się w nowej karcie, więc pobranie najnowszego firmware'u nie wymaga szukania
+  linku gdzie indziej.
+- Ze względów bezpieczeństwa jako link renderowane są tylko adresy zaczynające się od `http://` lub
+  `https://` — dotyczy to zwłaszcza importu pliku stanu od innej osoby (patrz sekcja "Eksport / import
+  stanu" wyżej), gdzie link mógłby w teorii być spreparowany.
+- Usunięcie wersji ze wspólnej listy czyści też jej przypisanie u wszystkich sampli, które ją miały
+  wybraną (nie usuwa samych sampli ani ich notatek/przeróbek).
+- Lista wersji zapisuje się tak samo jak reszta stanu (`localStorage` + eksport/import pliku stanu).
 
 ## Architektura i uzasadnienie wyboru narzędzi
 

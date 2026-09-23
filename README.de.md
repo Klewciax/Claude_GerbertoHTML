@@ -10,7 +10,8 @@ mit zwei Reitern:
   (Zoom/Verschieben), Checkboxen für Geliefert/Bestückt, manuelle Positionierung von Bauteilen ohne
   Pick-and-Place-Daten.
 - **Traceability** — Musternummern, gemeinsamer Nacharbeits-Pool (Rework) mit Fotos an jeder
-  Nacharbeit (als Nachweis/Anleitung ihrer Durchführung), Notizen pro Muster.
+  Nacharbeit (als Nachweis/Anleitung ihrer Durchführung), Notizen pro Muster, gemeinsame Liste von
+  Softwareversionen (mit klickbarem Download-Link) je Muster per Dropdown-Liste zugewiesen.
 
 Die erzeugte Datei `report.html` lässt sich direkt im Browser öffnen (Doppelklick, ohne Server), per
 E-Mail versenden, der Fertigungsdokumentation beilegen oder archivieren. Sie ist voll interaktiv —
@@ -452,6 +453,29 @@ wie vielen Mustern sie als durchgeführt markiert wird.
   Speichern fehl (z. B. zu viele Fotos), erscheint unten auf der Seite ein rotes Warnbanner, statt
   stillschweigend Daten zu verlieren; die Lösung ist, einige Fotos zu entfernen oder den Status in
   eine Datei zu exportieren, bevor der Browser geschlossen wird.
+
+## Softwareversionen (Traceability)
+
+Auf der linken Seite des Traceability-Tabs, unterhalb der gemeinsamen Nacharbeitsliste, gibt es ein
+eigenes Panel **„Softwareversionen“**: ein Formular mit Name/Nummer der Version (z. B. „Firmware
+v1.4.2“) und einem optionalen Download-Link, sowie eine Liste der bereits hinzugefügten Versionen.
+Genau wie die Nacharbeitsliste ist diese Liste **für den ganzen Bericht gemeinsam** — sie wird einmal
+angelegt und dann einzelnen Mustern zugeordnet.
+
+- Jedes Muster hat jetzt ein Feld **„Software“** — eine Dropdown-Liste mit allen im gemeinsamen Panel
+  hinzugefügten Versionen (plus die Option „— keine —“). Die Auswahl hält fest, welche Softwareversion
+  auf diesem Muster aufgespielt/getestet wurde.
+- Hat eine Version einen Link, ist dieser **klickbar** — sowohl bei ihrem Eintrag in der gemeinsamen
+  Liste (der Versionsname selbst ist ein Link) als auch beim Muster, dem sie zugeordnet ist (Schaltfläche
+  „Herunterladen“ neben der Dropdown-Liste) — er öffnet sich in einem neuen Tab, sodass das Herunterladen
+  der aktuellen Firmware nicht erst woanders gesucht werden muss.
+- Aus Sicherheitsgründen werden nur Adressen, die mit `http://` oder `https://` beginnen, als Link
+  dargestellt — das betrifft insbesondere den Import einer Statusdatei von einer anderen Person (siehe
+  Abschnitt „Export/Import des Status“ oben), bei der ein Link theoretisch präpariert sein könnte.
+- Wird eine Version aus der gemeinsamen Liste entfernt, wird auch ihre Zuordnung bei allen Mustern
+  gelöscht, die sie ausgewählt hatten (die Muster selbst samt Notizen/Nacharbeiten bleiben erhalten).
+- Die Versionsliste wird genau wie der übrige Status gespeichert (`localStorage` + Export/Import der
+  Statusdatei).
 
 ## Architektur und Begründung der Werkzeugwahl
 

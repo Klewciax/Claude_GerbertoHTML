@@ -207,6 +207,16 @@ def build_report_html(
             </form>
             <ul class="rework-pool__list" id="reworkList"></ul>
           </div>
+          <div class="software-pool">
+            <h2 data-i18n="software_heading">Wersje oprogramowania</h2>
+            <p class="software-pool__hint" data-i18n="software_hint">Wersje dodane tutaj są dostępne do wyboru dla każdego sampla z listy rozwijanej.</p>
+            <form id="softwareForm" class="software-pool__form">
+              <input type="text" id="softwareLabelInput" data-i18n-placeholder="software_label_placeholder" placeholder="np. Firmware v1.4.2" />
+              <input type="url" id="softwareUrlInput" data-i18n-placeholder="software_url_placeholder" placeholder="Link do pobrania (opcjonalnie)" />
+              <button type="submit" data-i18n="software_add_btn">Dodaj wersję</button>
+            </form>
+            <ul class="software-pool__list" id="softwareList"></ul>
+          </div>
         </aside>
         <section class="traceability-tab__samples">
           <div class="traceability-tab__add-sample">

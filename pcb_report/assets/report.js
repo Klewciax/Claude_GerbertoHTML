@@ -99,6 +99,17 @@
       sample_notes_placeholder: 'Uwagi dotyczące tego sampla…',
       photo_add_btn: '📷 Dodaj zdjęcie',
       photo_remove_title: 'Usuń zdjęcie',
+      software_heading: 'Wersje oprogramowania',
+      software_hint: 'Wersje dodane tutaj są dostępne do wyboru dla każdego sampla z listy rozwijanej.',
+      software_label_placeholder: 'np. Firmware v1.4.2',
+      software_url_placeholder: 'Link do pobrania (opcjonalnie)',
+      software_add_btn: 'Dodaj wersję',
+      software_empty: 'Brak wersji oprogramowania na liście.',
+      software_remove_title: 'Usuń wersję z listy',
+      software_download_title: 'Pobierz',
+      sample_software_label: 'Oprogramowanie',
+      sample_software_none: '— brak —',
+      sample_software_download: 'Pobierz',
       persist_failed_warning: 'Nie udało się zapisać zmian lokalnie (localStorage) — prawdopodobnie brak miejsca (za dużo/za duże zdjęcia). Usuń część zdjęć albo wyeksportuj stan teraz, zanim zamkniesz kartę.',
       import_bad_json: 'Nie udało się odczytać pliku stanu: to nie jest poprawny plik JSON.',
       import_different_report: 'Ten plik stanu pochodzi z innego raportu (inne pliki Gerber/BOM) — oznaczenia mogą się nie zgadzać. Zaimportować mimo to?',
@@ -190,6 +201,17 @@
       sample_notes_placeholder: 'Anmerkungen zu diesem Muster…',
       photo_add_btn: '📷 Foto hinzufügen',
       photo_remove_title: 'Foto entfernen',
+      software_heading: 'Softwareversionen',
+      software_hint: 'Hier hinzugefügte Versionen stehen für jedes Muster über eine Dropdown-Liste zur Auswahl.',
+      software_label_placeholder: 'z. B. Firmware v1.4.2',
+      software_url_placeholder: 'Download-Link (optional)',
+      software_add_btn: 'Version hinzufügen',
+      software_empty: 'Keine Softwareversionen in der Liste.',
+      software_remove_title: 'Version aus der Liste entfernen',
+      software_download_title: 'Herunterladen',
+      sample_software_label: 'Software',
+      sample_software_none: '— keine —',
+      sample_software_download: 'Herunterladen',
       persist_failed_warning: 'Änderungen konnten lokal nicht gespeichert werden (localStorage) — vermutlich kein Speicherplatz mehr (zu viele/zu große Fotos). Entferne einige Fotos oder exportiere den Status jetzt, bevor du den Tab schließt.',
       import_bad_json: 'Statusdatei konnte nicht gelesen werden: keine gültige JSON-Datei.',
       import_different_report: 'Diese Statusdatei stammt aus einem anderen Bericht (andere Gerber-/BOM-Dateien) — Bezeichnungen stimmen möglicherweise nicht überein. Trotzdem importieren?',
@@ -329,7 +351,7 @@
   // Persisted state (localStorage) merged on top of the generated data
   // ---------------------------------------------------------------------
   function defaultPersisted() {
-    return { manualPlacements: {}, reworks: [], samples: [], variantProgress: {}, production: {}, groupByPart: true, activeVariant: null, layerVisibility: {}, lastModified: null };
+    return { manualPlacements: {}, reworks: [], samples: [], softwareVersions: [], variantProgress: {}, production: {}, groupByPart: true, activeVariant: null, layerVisibility: {}, lastModified: null };
   }
 
   // Reworks saved/exported before photo attachments existed have no
@@ -386,6 +408,7 @@
         manualPlacements: parsed.manualPlacements || {},
         reworks: normalizeReworks(parsed.reworks),
         samples: parsed.samples || [],
+        softwareVersions: parsed.softwareVersions || [],
         variantProgress: normalizeVariantProgress(variantProgress),
         production: parsed.production || {},
         groupByPart: parsed.groupByPart != null ? parsed.groupByPart : true,
@@ -416,6 +439,7 @@
       manualPlacements: manualPlacements,
       reworks: state.reworks,
       samples: state.samples,
+      softwareVersions: state.softwareVersions,
       variantProgress: state.variantProgress,
       production: state.production,
       groupByPart: state.groupByPart,
@@ -467,6 +491,7 @@
     activeSide: 'top',
     reworks: persisted.reworks,
     samples: persisted.samples,
+    softwareVersions: persisted.softwareVersions,
     variantProgress: persisted.variantProgress,
     production: persisted.production,
     groupByPart: persisted.groupByPart,
@@ -572,7 +597,7 @@
       var label = prod.projectNumber + '_' + padUnitNumber(i, prod.unitCount);
       var exists = state.samples.some(function (s) { return s.name === label; });
       if (!exists) {
-        state.samples.push({ id: uid('smp'), name: label, reworkIds: [], notes: '' });
+        state.samples.push({ id: uid('smp'), name: label, reworkIds: [], notes: '', softwareVersionId: null });
         added = true;
       }
     }
@@ -1339,6 +1364,18 @@
   var sampleInput = document.getElementById('sampleInput');
   var sampleGrid = document.getElementById('sampleGrid');
   var sampleEmpty = document.getElementById('sampleEmpty');
+  var softwareForm = document.getElementById('softwareForm');
+  var softwareLabelInput = document.getElementById('softwareLabelInput');
+  var softwareUrlInput = document.getElementById('softwareUrlInput');
+  var softwareList = document.getElementById('softwareList');
+
+  // Only http(s) links are ever rendered as clickable -- state.softwareVersions
+  // can arrive via an imported state file from someone else (see "Eksport /
+  // import stanu" below), so a stray javascript: URL in there shouldn't be
+  // clickable.
+  function isSafeUrl(url) {
+    return /^https?:\/\//i.test(url || '');
+  }
 
   function reworkPhotosHtml(rework) {
     var photos = rework.photos || [];
@@ -1377,6 +1414,50 @@
       }).join('');
     }
   }
+
+  function renderSoftwarePool() {
+    if (state.softwareVersions.length === 0) {
+      softwareList.innerHTML = '<li class="software-pool__empty">' + escapeHtml(t('software_empty')) + '</li>';
+      return;
+    }
+    softwareList.innerHTML = state.softwareVersions.map(function (sv) {
+      var labelHtml = isSafeUrl(sv.url)
+        ? '<a href="' + escapeHtml(sv.url) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(t('software_download_title')) + '">' + escapeHtml(sv.label) + '</a>'
+        : '<span>' + escapeHtml(sv.label) + '</span>';
+      return (
+        '<li class="software-pool__item">' +
+        labelHtml +
+        '<button type="button" data-id="' + sv.id + '" title="' + escapeHtml(t('software_remove_title')) + '">✕</button>' +
+        '</li>'
+      );
+    }).join('');
+  }
+
+  softwareForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var label = softwareLabelInput.value.trim();
+    if (!label) return;
+    var url = softwareUrlInput.value.trim();
+    state.softwareVersions.push({ id: uid('sw'), label: label, url: url });
+    softwareLabelInput.value = '';
+    softwareUrlInput.value = '';
+    renderSoftwarePool();
+    renderSamples();
+    persist();
+  });
+
+  softwareList.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-id]');
+    if (!btn) return;
+    var id = btn.dataset.id;
+    state.softwareVersions = state.softwareVersions.filter(function (sv) { return sv.id !== id; });
+    state.samples.forEach(function (s) {
+      if (s.softwareVersionId === id) s.softwareVersionId = null;
+    });
+    renderSoftwarePool();
+    renderSamples();
+    persist();
+  });
 
   reworkForm.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -1426,6 +1507,23 @@
     }
   });
 
+  function sampleSoftwareHtml(sample) {
+    var options = '<option value="">' + escapeHtml(t('sample_software_none')) + '</option>' +
+      state.softwareVersions.map(function (sv) {
+        var selected = sample.softwareVersionId === sv.id ? ' selected' : '';
+        return '<option value="' + escapeHtml(sv.id) + '"' + selected + '>' + escapeHtml(sv.label) + '</option>';
+      }).join('');
+    var selectedSv = state.softwareVersions.find(function (sv) { return sv.id === sample.softwareVersionId; });
+    var downloadHtml = (selectedSv && isSafeUrl(selectedSv.url))
+      ? ' <a class="sample-card__software-download" href="' + escapeHtml(selectedSv.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(t('sample_software_download')) + '</a>'
+      : '';
+    return (
+      '<label class="sample-card__software">' + escapeHtml(t('sample_software_label')) + ':' +
+      '<select data-sample-software="' + sample.id + '">' + options + '</select>' +
+      '</label>' + downloadHtml
+    );
+  }
+
   function renderSamples() {
     if (state.samples.length === 0) {
       sampleEmpty.style.display = 'block';
@@ -1445,6 +1543,7 @@
         '<div class="sample-card__header"><h3>' + escapeHtml(sample.name) + '</h3>' +
         '<button type="button" data-remove-sample="' + sample.id + '" title="' + escapeHtml(t('sample_remove_title')) + '">✕</button></div>' +
         '<div class="sample-card__reworks">' + reworksHtml + '</div>' +
+        '<div class="sample-card__software-row">' + sampleSoftwareHtml(sample) + '</div>' +
         '<textarea class="sample-card__notes" data-notes="' + sample.id + '" placeholder="' + escapeHtml(t('sample_notes_placeholder')) + '">' + escapeHtml(sample.notes) + '</textarea>' +
         '</div>'
       );
@@ -1516,7 +1615,7 @@
     e.preventDefault();
     var name = sampleInput.value.trim();
     if (!name) return;
-    state.samples.push({ id: uid('smp'), name: name, reworkIds: [], notes: '' });
+    state.samples.push({ id: uid('smp'), name: name, reworkIds: [], notes: '', softwareVersionId: null });
     sampleInput.value = '';
     renderSamples();
     persist();
@@ -1540,6 +1639,13 @@
       var idx = sample.reworkIds.indexOf(reworkId);
       if (e.target.checked && idx === -1) sample.reworkIds.push(reworkId);
       if (!e.target.checked && idx !== -1) sample.reworkIds.splice(idx, 1);
+      persist();
+    }
+    if (e.target.matches('select[data-sample-software]')) {
+      var swSample = state.samples.find(function (s) { return s.id === e.target.dataset.sampleSoftware; });
+      if (!swSample) return;
+      swSample.softwareVersionId = e.target.value || null;
+      renderSamples();
       persist();
     }
   });
@@ -1591,6 +1697,7 @@
     renderLayerPanel();
     renderShortagePanel();
     renderReworkPool();
+    renderSoftwarePool();
     renderSamples();
     updateSideButtonsForSelection();
   }
@@ -1622,6 +1729,7 @@
       state.placements = Object.assign({}, DATA.variants[state.activeVariant].placements, parsed.manualPlacements || {});
       state.reworks = normalizeReworks(parsed.reworks);
       state.samples = parsed.samples || [];
+      state.softwareVersions = parsed.softwareVersions || [];
       var importedVariantProgress = parsed.variantProgress || {};
       if (!parsed.variantProgress && parsed.stock) {
         importedVariantProgress[DATA.defaultVariant] = parsed.stock;
@@ -1743,6 +1851,7 @@
   updateMappingHint();
   renderShortagePanel();
   renderReworkPool();
+  renderSoftwarePool();
   renderSamples();
   updateSideButtonsForSelection();
 })();
