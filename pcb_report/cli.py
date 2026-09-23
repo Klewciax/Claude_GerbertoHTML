@@ -44,10 +44,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--all-layers",
         action="store_true",
-        help="Zaznacz domyślnie WSZYSTKIE warstwy (w tym maskę, miedź wewnętrzną i inne warstwy "
-        "mechaniczne) w panelu 'Warstwy' raportu, zamiast tylko obrysu/miedzi zewnętrznej/silkscreenu/"
-        "pasty/courtyardu/wierteł. Każdą warstwę i tak można dowolnie włączyć/wyłączyć bezpośrednio "
-        "w raporcie niezależnie od tej flagi.",
+        help="Wszystkie warstwy (w tym maska, miedź wewnętrzna, inne mechaniczne) są i tak zawsze "
+        "widoczne domyślnie w panelu 'Warstwy' raportu — ta flaga tylko rozszerza dobór plików "
+        "branych pod uwagę przy automatycznym dopasowaniu kadru/przybliżenia widoku płytki o te "
+        "właśnie warstwy, przydatne gdy któraś z nich wystaje poza obrys płytki i ma znaczenie dla "
+        "kadrowania. Bez wpływu na to, co widać — każdą warstwę i tak można dowolnie włączyć/wyłączyć "
+        "bezpośrednio w raporcie.",
     )
     parser.add_argument("-o", "--output", default=None, metavar="PLIK", help="Ścieżka wyjściowego pliku HTML (domyślnie <KATALOG>/report.html).")
     parser.add_argument("--report-id", default=None, help="Wymuś konkretne ID raportu (klucz localStorage) zamiast wyliczonego automatycznie.")

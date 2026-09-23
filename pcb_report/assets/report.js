@@ -1104,9 +1104,22 @@
   }
   var LAYER_TYPE_COLORS = {
     copper: '#c9a06a', inner_copper: '#8a6b45', mask: '#1d5f3a', silk: '#f2f2f2',
-    paste: '#9aa0a6', courtyard: '#5fb8d6', drill: '#1a1a1a', outline: '#f0c000',
+    paste: '#c9a878', courtyard: '#5fb8d6', drill: '#1a1a1a', outline: '#f0c000',
     mechanical: '#b46fc9', unknown: '#8fa0b3',
   };
+  // silk and courtyard need a top/bottom-distinct swatch (see the matching
+  // _SIDE_COLOR_OVERRIDES in gerber.py, which the actual rendered SVG
+  // uses) -- otherwise their top and bottom files are indistinguishable
+  // at a glance in this list beyond reading the filename.
+  var SIDE_COLOR_OVERRIDES = {
+    silk: { top: '#f2f2f2', bottom: '#f2d9a8' },
+    courtyard: { top: '#5fb8d6', bottom: '#d65fb8' },
+  };
+  function layerColor(type, side) {
+    var override = SIDE_COLOR_OVERRIDES[type];
+    if (override && override[side]) return override[side];
+    return LAYER_TYPE_COLORS[type] || LAYER_TYPE_COLORS.unknown;
+  }
   var SIDE_I18N_KEYS = { top: 'side_label_top', bottom: 'side_label_bottom', all: 'side_label_all' };
   function sideLabel(side) {
     return SIDE_I18N_KEYS[side] ? t(SIDE_I18N_KEYS[side]) : side;
@@ -1139,7 +1152,7 @@
       var checked = isLayerVisible(l) ? 'checked' : '';
       var typeLabelText = layerTypeLabel(l.type);
       var sideLabelText = sideLabel(l.side);
-      var color = LAYER_TYPE_COLORS[l.type] || LAYER_TYPE_COLORS.unknown;
+      var color = layerColor(l.type, l.side);
       return (
         '<label class="layer-panel__row">' +
           '<input type="checkbox" data-layer="' + escapeHtml(l.name) + '" ' + checked + ' />' +

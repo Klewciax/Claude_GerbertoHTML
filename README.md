@@ -149,7 +149,7 @@ Następnie otwórz `report.html` w przeglądarce.
 | `--unit {mm,inch}` | nie | Domyślne jednostki współrzędnych w pliku pick-and-place, używane tylko gdy nagłówek kolumny sam nie mówi jednostki (np. samo `X`/`Y` zamiast `Center-X(mm)`) — patrz niżej. |
 | `-o, --output PLIK` | nie | Ścieżka wyjściowa (domyślnie `<KATALOG>/report.html`). |
 | `--report-id ID` | nie | Wymuszony klucz `localStorage` (domyślnie wyliczany automatycznie z nazw plików Gerber + zestawu oznaczeń — pozwala to na ponowne wygenerowanie raportu dla tego samego projektu bez utraty zaznaczonych checkboxów). |
-| `--all-layers` | nie | Zaznacz domyślnie wszystkie warstwy w panelu "Warstwy" raportu, zamiast tylko zwykle przydatnych (patrz sekcja "Format plików wejściowych"). Każdą warstwę można i tak dowolnie przełączyć bezpośrednio w raporcie. |
+| `--all-layers` | nie | Wszystkie warstwy (w tym maska, miedź wewnętrzna, inne mechaniczne) są i tak zawsze widoczne domyślnie w panelu "Warstwy" raportu — ta flaga tylko rozszerza dobór plików branych pod uwagę przy automatycznym dopasowaniu kadru/przybliżenia widoku płytki o te właśnie warstwy (patrz sekcja "Format plików wejściowych"). |
 | `--non-interactive` | nie | Nie pytaj w terminalu o przeznaczenie nierozpoznanych plików (patrz "Jak działa auto-wykrywanie") — po prostu je pomiń, jak w wersjach bez tej funkcji. |
 
 ### Jak działa auto-wykrywanie (i jak rozróżnia BOM od pick-and-place)
@@ -242,24 +242,27 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
   wypełniony kształt — to dotyczy tylko plików, które faktycznie używają takiej geometrii; pozostałe
   renderują się bez dodatkowego narzutu.
 
-  **Domyślnie w widoku Assembly widoczne są: obrys, miedź zewnętrzna (góra/dół), silkscreen, pasta,
-  courtyard i wiertła.** Miedź zewnętrzna jest celowo pokazywana — to na niej leżą pola lutownicze
-  (pady) komponentów, czyli najbardziej czytelna wskazówka "gdzie fizycznie jest ten element"
-  (potwierdzone porównaniem z ręcznym doborem warstw w przeglądarce Gerberów KiCada). Domyślnie
-  ukryte są natomiast: **maska lutownicza** (tylko przebarwienie, nic nie wnosi), **wewnętrzne
-  (zagrzebane) warstwy miedzi** (niewidoczne z zewnątrz, nieistotne przy montażu) oraz **inne,
-  nierozpoznane warstwy mechaniczne Altium** (`.GM<numer>` poza obrysem/courtyardem) — w
-  praktycznych projektach Altium bywa ich dziesiątki (wymiary, notatki fabrykacyjne, strefy
-  wysokości...) i domyślnie tylko zaśmiecałyby widok.
+  **Wszystkie wczytane warstwy są domyślnie widoczne** — łącznie z maską lutowniczą, wewnętrznymi
+  (zagrzebanymi) warstwami miedzi i innymi, nierozpoznanymi warstwami mechanicznymi Altium
+  (`.GM<numer>` poza obrysem/courtyardem). Zamiast ukrywać mniej przydatne warstwy, rozróżnia się je
+  kolorem: silkscreen i courtyard mają **osobny kolor dla góry i dla dołu** (żeby dało się je odróżnić
+  na pierwszy rzut oka, skoro obie strony widnieją razem na liście), a maska/miedź wewnętrzna/warstwy
+  mechaniczne/pasta mają własne, stałe kolory (patrz legenda w panelu „Warstwy”). Widok samej płytki
+  nadal pokazuje tylko warstwy pasujące do aktualnie wybranej strony (Góra/Dół) lub oznaczone jako
+  wspólne dla obu.
 
-  **To tylko domyślne ustawienie, nie twardy filtr** — klasyfikacja warstw to heurystyka (nazwa
-  pliku albo atrybut X2), więc dla nietypowego projektu może się pomylić. W raporcie, w prawym
-  górnym rogu widoku płytki, jest przycisk **„Warstwy”** otwierający panel z listą *każdego*
-  wczytanego pliku Gerber osobno (nazwa, typ, strona) z checkboxem — można dowolnie włączyć lub
-  wyłączyć każdą warstwę bez ponownego uruchamiania narzędzia, wybór zapisuje się tak samo jak
-  reszta stanu (localStorage + eksport/import). Flaga `--all-layers` tylko zmienia, które warstwy
-  są **domyślnie zaznaczone** przy pierwszym otwarciu raportu (wszystkie zamiast tylko powyższych)
-  — nie jest już jedynym sposobem, by je zobaczyć.
+  W raporcie, w prawym górnym rogu widoku płytki, jest przycisk **„Warstwy”** otwierający panel z listą
+  *każdego* wczytanego pliku Gerber osobno (nazwa, typ, strona, kolor) z checkboxem — można dowolnie
+  włączyć lub wyłączyć każdą warstwę bez ponownego uruchamiania narzędzia, wybór zapisuje się tak samo
+  jak reszta stanu (localStorage + eksport/import). Klasyfikacja warstw to heurystyka (nazwa pliku albo
+  atrybut X2), więc dla nietypowego projektu może się pomylić — nie ma to jednak wpływu na to, czy
+  warstwa jest widoczna (zawsze jest), tylko na jej kolor/etykietę w panelu.
+
+  Flaga `--all-layers` **nie kontroluje już widoczności** (to zawsze wszystkie warstwy) — reguluje
+  tylko, które pliki brane są pod uwagę przy automatycznym dopasowaniu kadru/przybliżenia widoku
+  płytki: domyślnie tylko obrys/miedź zewnętrzna/silkscreen/pasta/courtyard/wiertła (żeby pojedyncza,
+  źle umiejscowiona warstwa mechaniczna nie rozjechała kadru), a z `--all-layers` — również maska,
+  miedź wewnętrzna i inne warstwy mechaniczne.
 
 ## Mapowanie komponentów BOM → wizualizacja PCB
 

@@ -44,13 +44,27 @@ _COLORS: dict[LayerType, str] = {
     "inner_copper": "#8a6b45",
     "mask": "#1d5f3a",
     "silk": "#f2f2f2",
-    "paste": "#9aa0a6",
+    "paste": "#c9a878",
     "courtyard": "#5fb8d6",
     "drill": "#1a1a1a",
     "outline": "#f0c000",
     "mechanical": "#b46fc9",
     "unknown": "#8fa0b3",
 }
+# With every layer now visible by default (see ASSEMBLY_RELEVANT_TYPES),
+# silk and courtyard need a top/bottom-distinct color each -- otherwise a
+# top and a bottom file of the same type render identically and are only
+# tellable apart by reading their name in the layer panel.
+_SIDE_COLOR_OVERRIDES: dict[tuple[str, str], str] = {
+    ("silk", "top"): "#f2f2f2",
+    ("silk", "bottom"): "#f2d9a8",
+    ("courtyard", "top"): "#5fb8d6",
+    ("courtyard", "bottom"): "#d65fb8",
+}
+
+
+def _layer_color(layer_type: str, side: str) -> str:
+    return _SIDE_COLOR_OVERRIDES.get((layer_type, side), _COLORS.get(layer_type, _COLORS["unknown"]))
 _OPACITY: dict[LayerType, float] = {
     "copper": 0.92,
     "inner_copper": 0.5,
@@ -483,7 +497,7 @@ def _build_layers(files: list[_ParsedFile], all_layers: bool) -> list[GerberLaye
     ordered = sorted(files, key=lambda f: _Z_ORDER.index(f.layer_type) if f.layer_type in _Z_ORDER else 0)
     layers = []
     for i, f in enumerate(ordered):
-        color = _COLORS.get(f.layer_type, _COLORS["unknown"])
+        color = _layer_color(f.layer_type, f.side)
         opacity = _OPACITY.get(f.layer_type, _OPACITY["unknown"])
         if _CLEAR_POLARITY_RE.search(f.body):
             # This file actually uses clear polarity somewhere (common for
@@ -517,7 +531,13 @@ def _build_layers(files: list[_ParsedFile], all_layers: bool) -> list[GerberLaye
                 layer_type=f.layer_type,
                 side=f.side,
                 svg=svg,
-                default_visible=all_layers or f.layer_type in ASSEMBLY_RELEVANT_TYPES,
+                # Every parsed layer is visible by default now -- the color
+                # (see _layer_color) is what tells them apart instead of
+                # hiding the less commonly needed ones (mask, inner copper,
+                # mechanical/margin). `all_layers` is kept only so
+                # --all-layers stays a harmless no-op for anyone still
+                # passing it.
+                default_visible=True,
             )
         )
     return layers
@@ -551,38 +571,14 @@ def render_gerber_files(
         warnings.append("Żaden z wybranych plików nie został rozpoznany jako plik Gerber/Excellon z geometrią.")
         return GerberRenderResult(warnings=warnings)
 
-    default_visible_files = parsed_files if all_layers else [f for f in parsed_files if f.layer_type in ASSEMBLY_RELEVANT_TYPES]
-
-    if not all_layers:
-        skipped_mask = [f for f in parsed_files if f.layer_type == "mask"]
-        if skipped_mask:
-            warnings.append(
-                "Domyślnie ukryto warstwę maski lutowniczej (nieistotna do rozmieszczania komponentów — "
-                "widoczna miedź/pady wystarczą): "
-                + ", ".join(Path(f.path).name for f in skipped_mask)
-                + ". Można ją włączyć w panelu warstw w raporcie."
-            )
-        skipped_inner_copper = [f for f in parsed_files if f.layer_type == "inner_copper"]
-        if skipped_inner_copper:
-            warnings.append(
-                "Domyślnie ukryto wewnętrzne (niewidoczne z zewnątrz) warstwy miedzi: "
-                + ", ".join(Path(f.path).name for f in skipped_inner_copper)
-                + ". Można je włączyć w panelu warstw w raporcie."
-            )
-        skipped_mechanical = [f for f in parsed_files if f.layer_type == "mechanical"]
-        if skipped_mechanical:
-            warnings.append(
-                "Domyślnie ukryto inne warstwy mechaniczne Altium (przeznaczenie zależy od konkretnego "
-                "projektu — wymiary, notatki fabrykacyjne itp.): "
-                + ", ".join(Path(f.path).name for f in skipped_mechanical)
-                + ". Można je włączyć w panelu warstw w raporcie."
-            )
-
-    if not default_visible_files:
-        warnings.append(
-            "Żadna z domyślnie widocznych warstw (obrys/silkscreen/courtyard/miedź) nie została "
-            "znaleziona — płytka będzie pusta, dopóki nie włączysz odpowiednich warstw w panelu po lewej."
-        )
+    # Every layer is visible by default in the report now (see
+    # GerberLayer.default_visible in _build_layers) -- this set is only
+    # used to decide which files anchor the auto-fit view frame, so a
+    # handful of outsized/oddly-placed mechanical or mask files (a real
+    # thing in practical Altium projects) can't distort the initial zoom
+    # of the *whole* board. --all-layers widens that anchor set to
+    # everything too, for a project where those actually matter for framing.
+    bbox_anchor_files = parsed_files if all_layers else [f for f in parsed_files if f.layer_type in ASSEMBLY_RELEVANT_TYPES]
 
     unknown = [f.path for f in parsed_files if f.layer_type == "unknown"]
     if unknown:
@@ -592,7 +588,7 @@ def render_gerber_files(
             + " — plik(i) wyrenderowano w neutralnym kolorze na obu stronach płytki."
         )
 
-    bbox_source = default_visible_files or parsed_files
+    bbox_source = bbox_anchor_files or parsed_files
     min_x, min_y, max_x, max_y = _union_bbox(bbox_source)
     view_box = ViewBox(x=min_x, y=-max_y, width=max_x - min_x, height=max_y - min_y)
 
