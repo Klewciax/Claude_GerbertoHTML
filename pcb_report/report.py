@@ -82,19 +82,23 @@ def build_report_html(
       <span class="app__brand-mark">PCB</span>
       <div>
         <h1>GerbertoHTML — raport</h1>
-        <p>Zarządzanie montażem i śledzenie przeróbek płytek PCB</p>
+        <p data-i18n="app_subtitle">Zarządzanie montażem i śledzenie przeróbek płytek PCB</p>
       </div>
     </div>
     <nav class="tabs">
       <button type="button" class="tabs__button is-active" data-tab="assembly">Assembly</button>
       <button type="button" class="tabs__button" data-tab="traceability">Traceability</button>
     </nav>
+    <div class="lang-switch" id="langSwitch">
+      <button type="button" data-lang="pl" class="is-active">PL</button>
+      <button type="button" data-lang="de">DE</button>
+    </div>
     <div class="app__sync">
-      <button type="button" id="exportStateBtn" title="Zapisz plik ze stanem (do przekazania innej osobie/komputerowi)">⭳ Eksportuj stan</button>
-      <button type="button" id="importStateBtn" title="Wczytaj wcześniej wyeksportowany plik stanu">⭱ Importuj stan</button>
+      <button type="button" id="exportStateBtn" data-i18n-title="export_btn_title" title="Zapisz plik ze stanem (do przekazania innej osobie/komputerowi)"><span data-i18n="export_btn">⭳ Eksportuj stan</span></button>
+      <button type="button" id="importStateBtn" data-i18n-title="import_btn_title" title="Wczytaj wcześniej wyeksportowany plik stanu"><span data-i18n="import_btn">⭱ Importuj stan</span></button>
       <input type="file" id="importStateInput" accept=".json,application/json" style="display:none;" />
     </div>
-    <div class="app__meta">Wygenerowano: {generated_label}<br/>ID raportu: {resolved_report_id}</div>
+    <div class="app__meta"><span data-i18n="meta_generated">Wygenerowano</span>: {generated_label}<br/><span data-i18n="meta_report_id">ID raportu</span>: {resolved_report_id}</div>
   </header>
 
   <main class="app__main">
@@ -104,35 +108,35 @@ def build_report_html(
         <aside class="assembly-tab__sidebar">
           <div class="upload-panel">
             <div class="upload-panel__header">
-              <h2>Dane wejściowe</h2>
-              <button type="button" id="uploadPanelToggleBtn" class="upload-panel__toggle" aria-expanded="false" title="Pokaż/ukryj">▸</button>
+              <h2 data-i18n="input_data_heading">Dane wejściowe</h2>
+              <button type="button" id="uploadPanelToggleBtn" class="upload-panel__toggle" aria-expanded="false" data-i18n-title="input_data_toggle_title" title="Pokaż/ukryj">▸</button>
             </div>
             <div class="upload-panel__body" id="uploadPanelBody" style="display:none;">
-              <p>Plik(i) Gerber: {_html_escape(', '.join(Path(p).name for p in gerber_paths) or '—')}</p>
+              <p><span data-i18n="input_gerber_label">Plik(i) Gerber</span>: {_html_escape(', '.join(Path(p).name for p in gerber_paths) or '—')}</p>
               {warnings_html}
             </div>
           </div>
 
           <div class="variant-picker" id="variantPicker" style="display:none;">
-            <label for="variantSelect">Wariant montażu</label>
+            <label for="variantSelect" data-i18n="variant_label">Wariant montażu</label>
             <select id="variantSelect"></select>
           </div>
 
           <div class="assembly-tab__summary">
-            <div>Pozycje: <strong id="summaryTotal">0</strong></div>
-            <div>Dostarczono: <strong id="summaryDelivered">0/0</strong></div>
-            <div>Zamontowano: <strong id="summaryMounted">0/0</strong></div>
+            <div><span data-i18n="summary_positions">Pozycje</span>: <strong id="summaryTotal">0</strong></div>
+            <div><span data-i18n="summary_delivered">Dostarczono</span>: <strong id="summaryDelivered">0/0</strong></div>
+            <div><span data-i18n="summary_mounted">Zamontowano</span>: <strong id="summaryMounted">0/0</strong></div>
           </div>
 
           <div class="component-list__controls">
             <label class="component-list__group-toggle">
               <input type="checkbox" id="groupByPartToggle" checked />
-              Grupuj wg części (MPN)
+              <span data-i18n="group_by_part">Grupuj wg części (MPN)</span>
             </label>
           </div>
 
           <div class="component-list">
-            <div class="component-list--empty" id="componentListEmpty" style="display:none;">Brak komponentów w BOM.</div>
+            <div class="component-list--empty" id="componentListEmpty" data-i18n="no_components" style="display:none;">Brak komponentów w BOM.</div>
             <table id="componentListTable">
               <thead id="componentListHead"></thead>
               <tbody id="componentListBody"></tbody>
@@ -142,25 +146,25 @@ def build_report_html(
 
         <section class="assembly-tab__viewer">
           <div class="assembly-tab__side-switch">
-            <button type="button" id="sideTopBtn" class="is-active">Góra (Top)</button>
-            <button type="button" id="sideBottomBtn">Dół (Bottom)</button>
-            <button type="button" id="layerPanelToggleBtn" class="layer-panel-toggle">Warstwy</button>
+            <button type="button" id="sideTopBtn" class="is-active" data-i18n="side_top">Góra (Top)</button>
+            <button type="button" id="sideBottomBtn" data-i18n="side_bottom">Dół (Bottom)</button>
+            <button type="button" id="layerPanelToggleBtn" class="layer-panel-toggle" data-i18n="layers_btn">Warstwy</button>
           </div>
           <div class="pcb-viewer">
             <div class="pcb-viewer__toolbar">
-              <button type="button" id="fitViewBtn">Dopasuj widok</button>
+              <button type="button" id="fitViewBtn" data-i18n="fit_view_btn">Dopasuj widok</button>
               <button type="button" id="zoomInBtn">+</button>
               <button type="button" id="zoomOutBtn">−</button>
               <span class="pcb-viewer__mapping-hint" id="mappingHint" style="display:none;"></span>
             </div>
             <div class="layer-panel" id="layerPanel" style="display:none;">
               <div class="layer-panel__header">
-                <h3>Warstwy Gerber</h3>
-                <button type="button" id="layerPanelCloseBtn" title="Zamknij">✕</button>
+                <h3 data-i18n="layer_panel_heading">Warstwy Gerber</h3>
+                <button type="button" id="layerPanelCloseBtn" data-i18n-title="close_title" title="Zamknij">✕</button>
               </div>
               <div class="layer-panel__list" id="layerPanelList"></div>
             </div>
-            <div class="pcb-viewer__empty" id="boardEmpty" style="display:none;">Brak wyrenderowanej płytki PCB (sprawdź ostrzeżenia po lewej).</div>
+            <div class="pcb-viewer__empty" id="boardEmpty" data-i18n="board_empty" style="display:none;">Brak wyrenderowanej płytki PCB (sprawdź ostrzeżenia po lewej).</div>
             <div class="board-viewport" id="boardViewport">
               <div class="board-stage" id="boardStage"></div>
             </div>
@@ -169,8 +173,8 @@ def build_report_html(
       </div>
 
       <div class="shortage-panel" id="shortagePanel">
-        <h2>Braki (dostawa / montaż)</h2>
-        <p class="shortage-panel__empty" id="shortageEmpty">Brak braków — wszystko dostarczone i zamontowane w potrzebnej ilości.</p>
+        <h2 data-i18n="shortage_heading">Braki (dostawa / montaż)</h2>
+        <p class="shortage-panel__empty" id="shortageEmpty" data-i18n="shortage_empty">Brak braków — wszystko dostarczone i zamontowane w potrzebnej ilości.</p>
         <div class="shortage-panel__list" id="shortageList"></div>
       </div>
       </div>
@@ -180,24 +184,24 @@ def build_report_html(
       <div class="traceability-tab">
         <aside class="traceability-tab__sidebar">
           <div class="rework-pool">
-            <h2>Wspólna lista przeróbek (rework)</h2>
-            <p class="rework-pool__hint">Przeróbki dodane tutaj są wspólne dla wszystkich sampli — dla każdego sampla zaznaczysz, które z nich wystąpiły.</p>
+            <h2 data-i18n="rework_heading">Wspólna lista przeróbek (rework)</h2>
+            <p class="rework-pool__hint" data-i18n="rework_hint">Przeróbki dodane tutaj są wspólne dla wszystkich sampli — dla każdego sampla zaznaczysz, które z nich wystąpiły.</p>
             <form id="reworkForm" class="rework-pool__form">
-              <input type="text" id="reworkInput" placeholder="np. Wymiana R12 na wartość 10k" />
-              <button type="submit">Dodaj przeróbkę</button>
+              <input type="text" id="reworkInput" data-i18n-placeholder="rework_input_placeholder" placeholder="np. Wymiana R12 na wartość 10k" />
+              <button type="submit" data-i18n="rework_add_btn">Dodaj przeróbkę</button>
             </form>
             <ul class="rework-pool__list" id="reworkList"></ul>
           </div>
         </aside>
         <section class="traceability-tab__samples">
           <div class="traceability-tab__add-sample">
-            <h2>Sample</h2>
+            <h2 data-i18n="sample_heading">Sample</h2>
             <form id="sampleForm">
-              <input type="text" id="sampleInput" placeholder="np. Sample #12 / SN-0042" />
-              <button type="submit">Dodaj sampel</button>
+              <input type="text" id="sampleInput" data-i18n-placeholder="sample_input_placeholder" placeholder="np. Sample #12 / SN-0042" />
+              <button type="submit" data-i18n="sample_add_btn">Dodaj sampel</button>
             </form>
           </div>
-          <p class="traceability-tab__empty" id="sampleEmpty">Brak sampli — dodaj pierwszy powyżej.</p>
+          <p class="traceability-tab__empty" id="sampleEmpty" data-i18n="sample_empty">Brak sampli — dodaj pierwszy powyżej.</p>
           <div class="traceability-tab__grid" id="sampleGrid"></div>
         </section>
       </div>

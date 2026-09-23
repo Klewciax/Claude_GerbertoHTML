@@ -70,6 +70,13 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 }
 .tabs__button.is-active { background: var(--white); color: var(--navy); }
 
+.lang-switch { display: flex; gap: 4px; background: rgba(255,255,255,0.08); padding: 4px; border-radius: 8px; }
+.lang-switch button {
+  border: none; background: transparent; color: var(--gray-300);
+  padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 0.76rem;
+}
+.lang-switch button.is-active { background: var(--white); color: var(--navy); }
+
 .app__main { flex: 1; min-height: 0; }
 .tab-panel { display: none; height: 100%; }
 .tab-panel.is-active { display: flex; }

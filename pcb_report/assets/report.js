@@ -7,6 +7,225 @@
   var MIN_SCALE = 0.3;
   var MAX_SCALE = 40;
 
+  // ---------------------------------------------------------------------
+  // Language switching (PL/DE) -- covers the report's own UI (labels,
+  // buttons, table headers, generated component/rework/sample content).
+  // Parser warnings baked into the report at generation time (from the
+  // command-line tool's own console output) stay in Polish regardless of
+  // this toggle, since translating those would mean localizing the whole
+  // Python CLI, not just this one report page.
+  // ---------------------------------------------------------------------
+  var I18N = {
+    pl: {
+      app_subtitle: 'Zarządzanie montażem i śledzenie przeróbek płytek PCB',
+      export_btn: '⭳ Eksportuj stan',
+      export_btn_title: 'Zapisz plik ze stanem (do przekazania innej osobie/komputerowi)',
+      import_btn: '⭱ Importuj stan',
+      import_btn_title: 'Wczytaj wcześniej wyeksportowany plik stanu',
+      meta_generated: 'Wygenerowano',
+      meta_report_id: 'ID raportu',
+      input_data_heading: 'Dane wejściowe',
+      input_data_toggle_title: 'Pokaż/ukryj',
+      input_gerber_label: 'Plik(i) Gerber',
+      variant_label: 'Wariant montażu',
+      summary_positions: 'Pozycje',
+      summary_delivered: 'Dostarczono',
+      summary_mounted: 'Zamontowano',
+      group_by_part: 'Grupuj wg części (MPN)',
+      no_components: 'Brak komponentów w BOM.',
+      side_top: 'Góra (Top)',
+      side_bottom: 'Dół (Bottom)',
+      layers_btn: 'Warstwy',
+      fit_view_btn: 'Dopasuj widok',
+      layer_panel_heading: 'Warstwy Gerber',
+      close_title: 'Zamknij',
+      board_empty: 'Brak wyrenderowanej płytki PCB (sprawdź ostrzeżenia po lewej).',
+      shortage_heading: 'Braki (dostawa / montaż)',
+      shortage_empty: 'Brak braków — wszystko dostarczone i zamontowane w potrzebnej ilości.',
+      rework_heading: 'Wspólna lista przeróbek (rework)',
+      rework_hint: 'Przeróbki dodane tutaj są wspólne dla wszystkich sampli — dla każdego sampla zaznaczysz, które z nich wystąpiły.',
+      rework_input_placeholder: 'np. Wymiana R12 na wartość 10k',
+      rework_add_btn: 'Dodaj przeróbkę',
+      sample_heading: 'Sample',
+      sample_input_placeholder: 'np. Sample #12 / SN-0042',
+      sample_add_btn: 'Dodaj sampel',
+      sample_empty: 'Brak sampli — dodaj pierwszy powyżej.',
+      qty_shortage: 'brakuje {n}',
+      qty_ok: 'OK',
+      qty_all_btn: 'Wszystko',
+      chip_title_cancel: 'Kliknij, aby anulować',
+      chip_title_unplaced: 'Brak pozycji — kliknij, aby ustawić na płytce',
+      chip_title_reposition: 'Kliknij, aby zmienić pozycję na płytce',
+      unplaced_label: 'Brak pozycji: {list}',
+      flat_delivered: 'Dostarczono (część): {delivered}/{needed}',
+      flat_mounted: 'Zamontowano (część): {mounted}/{needed}',
+      th_designators: 'Oznaczenia',
+      th_value_footprint: 'Wartość / Footprint',
+      th_needed: 'Potrzeba',
+      th_delivered: 'Dostarczono',
+      th_mounted: 'Zamontowano',
+      th_designator_single: 'Oznaczenie',
+      th_part_status: 'Status części',
+      shortage_missing_delivery: 'brakuje dostawy: {n}',
+      shortage_missing_mount: 'brakuje montażu: {n}',
+      shortage_needed: 'potrzeba: {n}',
+      layer_type_copper: 'Miedź',
+      layer_type_inner_copper: 'Miedź wewnętrzna',
+      layer_type_mask: 'Maska lutownicza',
+      layer_type_silk: 'Opis (silkscreen)',
+      layer_type_paste: 'Pasta',
+      layer_type_courtyard: 'Courtyard',
+      layer_type_drill: 'Wiertła',
+      layer_type_outline: 'Obrys',
+      layer_type_mechanical: 'Mechaniczna (inna)',
+      layer_type_unknown: 'Nierozpoznana',
+      side_label_top: 'góra',
+      side_label_bottom: 'dół',
+      side_label_all: 'obie strony',
+      layer_panel_empty: 'Brak wczytanych plików Gerber.',
+      mapping_hint: 'Kliknij na płytce, aby ustawić pozycję {designator}',
+      rework_empty: 'Brak przeróbek na liście.',
+      rework_remove_title: 'Usuń przeróbkę z wspólnej listy',
+      sample_no_reworks: 'Dodaj przeróbki do wspólnej listy.',
+      sample_remove_title: 'Usuń sampel',
+      sample_notes_placeholder: 'Uwagi dotyczące tego sampla…',
+      import_bad_json: 'Nie udało się odczytać pliku stanu: to nie jest poprawny plik JSON.',
+      import_different_report: 'Ten plik stanu pochodzi z innego raportu (inne pliki Gerber/BOM) — oznaczenia mogą się nie zgadzać. Zaimportować mimo to?',
+      import_older_confirm: 'Importowany plik jest STARSZY niż obecny stan w tej przeglądarce (obecny: {current}, w pliku: {imported}). Import nadpisze bieżące dane starszymi. Kontynuować?',
+      import_confirm: 'Zaimportować stan z pliku? Nadpisze to bieżące dane w tej przeglądarce.',
+      import_success: 'Zaimportowano stan z pliku.',
+      import_read_error: 'Nie udało się odczytać pliku.',
+    },
+    de: {
+      app_subtitle: 'Bestückungsverwaltung und Nacharbeits-Rückverfolgung für Leiterplatten',
+      export_btn: '⭳ Status exportieren',
+      export_btn_title: 'Statusdatei speichern (zum Weitergeben an eine andere Person/einen anderen Computer)',
+      import_btn: '⭱ Status importieren',
+      import_btn_title: 'Zuvor exportierte Statusdatei laden',
+      meta_generated: 'Erstellt am',
+      meta_report_id: 'Bericht-ID',
+      input_data_heading: 'Eingabedaten',
+      input_data_toggle_title: 'Anzeigen/Ausblenden',
+      input_gerber_label: 'Gerber-Datei(en)',
+      variant_label: 'Bestückungsvariante',
+      summary_positions: 'Positionen',
+      summary_delivered: 'Geliefert',
+      summary_mounted: 'Bestückt',
+      group_by_part: 'Nach Bauteil gruppieren (MPN)',
+      no_components: 'Keine Bauteile in der Stückliste.',
+      side_top: 'Oben (Top)',
+      side_bottom: 'Unten (Bottom)',
+      layers_btn: 'Ebenen',
+      fit_view_btn: 'Ansicht anpassen',
+      layer_panel_heading: 'Gerber-Ebenen',
+      close_title: 'Schließen',
+      board_empty: 'Keine gerenderte Leiterplatte (siehe Warnungen links).',
+      shortage_heading: 'Fehlmengen (Lieferung / Bestückung)',
+      shortage_empty: 'Keine Fehlmengen — alles in benötigter Menge geliefert und bestückt.',
+      rework_heading: 'Gemeinsame Nacharbeitsliste (Rework)',
+      rework_hint: 'Hier hinzugefügte Nacharbeiten gelten für alle Muster — für jedes Muster markierst du, welche davon aufgetreten sind.',
+      rework_input_placeholder: 'z. B. R12 gegen 10k ersetzt',
+      rework_add_btn: 'Nacharbeit hinzufügen',
+      sample_heading: 'Muster',
+      sample_input_placeholder: 'z. B. Muster #12 / SN-0042',
+      sample_add_btn: 'Muster hinzufügen',
+      sample_empty: 'Keine Muster — füge oben das erste hinzu.',
+      qty_shortage: 'fehlen {n}',
+      qty_ok: 'OK',
+      qty_all_btn: 'Alles',
+      chip_title_cancel: 'Klicken zum Abbrechen',
+      chip_title_unplaced: 'Keine Position — klicken, um sie auf der Platine zu setzen',
+      chip_title_reposition: 'Klicken, um die Position auf der Platine zu ändern',
+      unplaced_label: 'Keine Position: {list}',
+      flat_delivered: 'Geliefert (Bauteil): {delivered}/{needed}',
+      flat_mounted: 'Bestückt (Bauteil): {mounted}/{needed}',
+      th_designators: 'Bezeichnungen',
+      th_value_footprint: 'Wert / Footprint',
+      th_needed: 'Benötigt',
+      th_delivered: 'Geliefert',
+      th_mounted: 'Bestückt',
+      th_designator_single: 'Bezeichnung',
+      th_part_status: 'Bauteilstatus',
+      shortage_missing_delivery: 'Lieferung fehlt: {n}',
+      shortage_missing_mount: 'Bestückung fehlt: {n}',
+      shortage_needed: 'benötigt: {n}',
+      layer_type_copper: 'Kupfer',
+      layer_type_inner_copper: 'Innenlagen-Kupfer',
+      layer_type_mask: 'Lötstoppmaske',
+      layer_type_silk: 'Bestückungsdruck (Silkscreen)',
+      layer_type_paste: 'Lotpaste',
+      layer_type_courtyard: 'Courtyard',
+      layer_type_drill: 'Bohrungen',
+      layer_type_outline: 'Umriss',
+      layer_type_mechanical: 'Mechanisch (sonstige)',
+      layer_type_unknown: 'Unbekannt',
+      side_label_top: 'oben',
+      side_label_bottom: 'unten',
+      side_label_all: 'beide Seiten',
+      layer_panel_empty: 'Keine Gerber-Dateien geladen.',
+      mapping_hint: 'Klicke auf die Platine, um die Position von {designator} zu setzen',
+      rework_empty: 'Keine Nacharbeiten in der Liste.',
+      rework_remove_title: 'Nacharbeit aus der gemeinsamen Liste entfernen',
+      sample_no_reworks: 'Füge Nacharbeiten zur gemeinsamen Liste hinzu.',
+      sample_remove_title: 'Muster entfernen',
+      sample_notes_placeholder: 'Anmerkungen zu diesem Muster…',
+      import_bad_json: 'Statusdatei konnte nicht gelesen werden: keine gültige JSON-Datei.',
+      import_different_report: 'Diese Statusdatei stammt aus einem anderen Bericht (andere Gerber-/BOM-Dateien) — Bezeichnungen stimmen möglicherweise nicht überein. Trotzdem importieren?',
+      import_older_confirm: 'Die importierte Datei ist ÄLTER als der aktuelle Status in diesem Browser (aktuell: {current}, in der Datei: {imported}). Der Import überschreibt die aktuellen Daten mit älteren. Fortfahren?',
+      import_confirm: 'Status aus der Datei importieren? Dies überschreibt die aktuellen Daten in diesem Browser.',
+      import_success: 'Status wurde aus der Datei importiert.',
+      import_read_error: 'Datei konnte nicht gelesen werden.',
+    },
+  };
+  var LANG_STORAGE_KEY = 'pcb-report:lang';
+  var LANG = (function () {
+    try {
+      var saved = window.localStorage.getItem(LANG_STORAGE_KEY);
+      return I18N[saved] ? saved : 'pl';
+    } catch (e) {
+      return 'pl';
+    }
+  })();
+
+  function t(key, vars) {
+    var s = (I18N[LANG] && I18N[LANG][key] != null) ? I18N[LANG][key] : (I18N.pl[key] != null ? I18N.pl[key] : key);
+    if (vars) {
+      Object.keys(vars).forEach(function (k) {
+        s = s.split('{' + k + '}').join(vars[k]);
+      });
+    }
+    return s;
+  }
+
+  function applyStaticTranslations() {
+    document.documentElement.lang = LANG;
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      el.textContent = t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(function (el) {
+      el.title = t(el.dataset.i18nTitle);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) {
+      el.placeholder = t(el.dataset.i18nPlaceholder);
+    });
+    document.querySelectorAll('#langSwitch button').forEach(function (b) {
+      b.classList.toggle('is-active', b.dataset.lang === LANG);
+    });
+  }
+
+  function setLanguage(lang) {
+    if (!I18N[lang] || lang === LANG) return;
+    LANG = lang;
+    try { window.localStorage.setItem(LANG_STORAGE_KEY, lang); } catch (e) { /* ignore */ }
+    applyStaticTranslations();
+    refreshAllViews();
+    updateMappingHint();
+  }
+  document.querySelectorAll('#langSwitch button[data-lang]').forEach(function (btn) {
+    btn.addEventListener('click', function () { setLanguage(btn.dataset.lang); });
+  });
+  applyStaticTranslations();
+
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -267,13 +486,13 @@
   function qtyCellHtml(key, kind, value, needed) {
     var shortage = Math.max(0, needed - value);
     var statusHtml = shortage > 0
-      ? '<span class="qty-cell__shortage">brakuje ' + shortage + '</span>'
-      : '<span class="qty-cell__ok">OK</span>';
+      ? '<span class="qty-cell__shortage">' + escapeHtml(t('qty_shortage', { n: shortage })) + '</span>'
+      : '<span class="qty-cell__ok">' + escapeHtml(t('qty_ok')) + '</span>';
     return (
       '<div class="qty-cell">' +
         '<div class="qty-cell__row">' +
           '<input type="number" min="0" step="1" value="' + value + '" data-qty="' + kind + '" data-key="' + escapeHtml(key) + '" />' +
-          '<button type="button" class="qty-cell__all" data-qty-all="' + kind + '" data-key="' + escapeHtml(key) + '">Wszystko</button>' +
+          '<button type="button" class="qty-cell__all" data-qty-all="' + kind + '" data-key="' + escapeHtml(key) + '">' + escapeHtml(t('qty_all_btn')) + '</button>' +
         '</div>' +
         statusHtml +
       '</div>'
@@ -294,10 +513,10 @@
       var isMappingThis = state.mappingDesignator === d;
       var cls = 'designator-chip' + (isUnplaced ? ' designator-chip--unplaced' : '') + (isMappingThis ? ' is-mapping' : '');
       var title = isMappingThis
-        ? 'Kliknij, aby anulować'
-        : (isUnplaced ? 'Brak pozycji — kliknij, aby ustawić na płytce' : 'Kliknij, aby zmienić pozycję na płytce');
+        ? t('chip_title_cancel')
+        : (isUnplaced ? t('chip_title_unplaced') : t('chip_title_reposition'));
       return (
-        '<button type="button" class="' + cls + '" data-action="map" data-designator="' + escapeHtml(d) + '" title="' + title + '">' +
+        '<button type="button" class="' + cls + '" data-action="map" data-designator="' + escapeHtml(d) + '" title="' + escapeHtml(title) + '">' +
         escapeHtml(d) + (isMappingThis ? ' ✕' : '') + '</button>'
       );
     }).join(' ');
@@ -306,7 +525,7 @@
   function unplacedHintHtml(designators) {
     var unplaced = designators.filter(function (d) { return !state.placements[d]; });
     if (unplaced.length === 0) return '';
-    return '<div class="component-list__unplaced">Brak pozycji: ' + escapeHtml(unplaced.join(', ')) + '</div>';
+    return '<div class="component-list__unplaced">' + escapeHtml(t('unplaced_label', { list: unplaced.join(', ') })) + '</div>';
   }
 
   function groupedRowHtml(row) {
@@ -338,16 +557,16 @@
       unplacedHintHtml([entry.designator]) +
       '</td>' +
       '<td><div>' + escapeHtml(entry.value || '—') + '</div><div class="component-list__footprint">' + escapeHtml(entry.footprint || '') + '</div></td>' +
-      '<td><div class="component-list__flat-status">Dostarczono (część): ' + stock.delivered + '/' + needed + '</div>' +
-      '<div class="component-list__flat-status">Zamontowano (część): ' + stock.mounted + '/' + needed + '</div></td>' +
+      '<td><div class="component-list__flat-status">' + escapeHtml(t('flat_delivered', { delivered: stock.delivered, needed: needed })) + '</div>' +
+      '<div class="component-list__flat-status">' + escapeHtml(t('flat_mounted', { mounted: stock.mounted, needed: needed })) + '</div></td>' +
       '</tr>'
     );
   }
 
   function updateListHead() {
     listHead.innerHTML = state.groupByPart
-      ? '<tr><th>Oznaczenia</th><th>Wartość / Footprint</th><th>Potrzeba</th><th>Dostarczono</th><th>Zamontowano</th></tr>'
-      : '<tr><th>Oznaczenie</th><th>Wartość / Footprint</th><th>Status części</th></tr>';
+      ? '<tr><th>' + escapeHtml(t('th_designators')) + '</th><th>' + escapeHtml(t('th_value_footprint')) + '</th><th>' + escapeHtml(t('th_needed')) + '</th><th>' + escapeHtml(t('th_delivered')) + '</th><th>' + escapeHtml(t('th_mounted')) + '</th></tr>'
+      : '<tr><th>' + escapeHtml(t('th_designator_single')) + '</th><th>' + escapeHtml(t('th_value_footprint')) + '</th><th>' + escapeHtml(t('th_part_status')) + '</th></tr>';
   }
 
   function renderComponentList() {
@@ -514,14 +733,14 @@
     emptyEl.style.display = 'none';
     listEl.innerHTML = items.map(function (it) {
       var badges = '';
-      if (it.missingDelivery > 0) badges += '<span class="shortage-panel__missing">brakuje dostawy: ' + it.missingDelivery + '</span>';
-      if (it.missingMount > 0) badges += '<span class="shortage-panel__missing">brakuje montażu: ' + it.missingMount + '</span>';
+      if (it.missingDelivery > 0) badges += '<span class="shortage-panel__missing">' + escapeHtml(t('shortage_missing_delivery', { n: it.missingDelivery })) + '</span>';
+      if (it.missingMount > 0) badges += '<span class="shortage-panel__missing">' + escapeHtml(t('shortage_missing_mount', { n: it.missingMount })) + '</span>';
       return (
         '<div class="shortage-panel__item">' +
         '<strong>' + escapeHtml(it.row.designators.join(', ')) + '</strong>' +
         '<span>' + escapeHtml(it.row.value || '—') + (it.row.footprint ? ' / ' + escapeHtml(it.row.footprint) : '') + '</span>' +
         (it.row.mpn ? '<span>MPN: ' + escapeHtml(it.row.mpn) + '</span>' : '') +
-        '<span>potrzeba: ' + it.needed + '</span>' +
+        '<span>' + escapeHtml(t('shortage_needed', { n: it.needed })) + '</span>' +
         badges +
         '</div>'
       );
@@ -670,17 +889,23 @@
   // toggled directly instead of needing the tool re-run with different
   // flags.
   // ---------------------------------------------------------------------
-  var LAYER_TYPE_LABELS = {
-    copper: 'Miedź', inner_copper: 'Miedź wewnętrzna', mask: 'Maska lutownicza',
-    silk: 'Opis (silkscreen)', paste: 'Pasta', courtyard: 'Courtyard', drill: 'Wiertła',
-    outline: 'Obrys', mechanical: 'Mechaniczna (inna)', unknown: 'Nierozpoznana',
+  var LAYER_TYPE_I18N_KEYS = {
+    copper: 'layer_type_copper', inner_copper: 'layer_type_inner_copper', mask: 'layer_type_mask',
+    silk: 'layer_type_silk', paste: 'layer_type_paste', courtyard: 'layer_type_courtyard', drill: 'layer_type_drill',
+    outline: 'layer_type_outline', mechanical: 'layer_type_mechanical', unknown: 'layer_type_unknown',
   };
+  function layerTypeLabel(type) {
+    return LAYER_TYPE_I18N_KEYS[type] ? t(LAYER_TYPE_I18N_KEYS[type]) : type;
+  }
   var LAYER_TYPE_COLORS = {
     copper: '#c9a06a', inner_copper: '#8a6b45', mask: '#1d5f3a', silk: '#f2f2f2',
     paste: '#9aa0a6', courtyard: '#5fb8d6', drill: '#1a1a1a', outline: '#f0c000',
     mechanical: '#b46fc9', unknown: '#8fa0b3',
   };
-  var SIDE_LABELS = { top: 'góra', bottom: 'dół', all: 'obie strony' };
+  var SIDE_I18N_KEYS = { top: 'side_label_top', bottom: 'side_label_bottom', all: 'side_label_all' };
+  function sideLabel(side) {
+    return SIDE_I18N_KEYS[side] ? t(SIDE_I18N_KEYS[side]) : side;
+  }
 
   function isLayerVisible(layer) {
     var v = state.layerVisibility[layer.name];
@@ -702,13 +927,13 @@
   function renderLayerPanel() {
     var layers = DATA.gerberLayers || [];
     if (layers.length === 0) {
-      layerPanelList.innerHTML = '<p class="layer-panel__empty">Brak wczytanych plików Gerber.</p>';
+      layerPanelList.innerHTML = '<p class="layer-panel__empty">' + escapeHtml(t('layer_panel_empty')) + '</p>';
       return;
     }
     layerPanelList.innerHTML = layers.map(function (l) {
       var checked = isLayerVisible(l) ? 'checked' : '';
-      var typeLabel = LAYER_TYPE_LABELS[l.type] || l.type;
-      var sideLabel = SIDE_LABELS[l.side] || l.side;
+      var typeLabelText = layerTypeLabel(l.type);
+      var sideLabelText = sideLabel(l.side);
       var color = LAYER_TYPE_COLORS[l.type] || LAYER_TYPE_COLORS.unknown;
       return (
         '<label class="layer-panel__row">' +
@@ -716,7 +941,7 @@
           '<span class="layer-panel__swatch" style="background:' + color + '"></span>' +
           '<span class="layer-panel__info">' +
             '<span class="layer-panel__name" title="' + escapeHtml(l.name) + '">' + escapeHtml(l.name) + '</span>' +
-            '<span class="layer-panel__meta">' + escapeHtml(typeLabel) + ' · ' + escapeHtml(sideLabel) + '</span>' +
+            '<span class="layer-panel__meta">' + escapeHtml(typeLabelText) + ' · ' + escapeHtml(sideLabelText) + '</span>' +
           '</span>' +
         '</label>'
       );
@@ -795,7 +1020,7 @@
     viewport.classList.toggle('is-mapping', !!state.mappingDesignator);
     if (state.mappingDesignator) {
       mappingHint.style.display = 'inline';
-      mappingHint.textContent = 'Kliknij na płytce, aby ustawić pozycję ' + state.mappingDesignator;
+      mappingHint.textContent = t('mapping_hint', { designator: state.mappingDesignator });
     } else {
       mappingHint.style.display = 'none';
     }
@@ -899,10 +1124,10 @@
 
   function renderReworkPool() {
     if (state.reworks.length === 0) {
-      reworkList.innerHTML = '<li class="rework-pool__empty">Brak przeróbek na liście.</li>';
+      reworkList.innerHTML = '<li class="rework-pool__empty">' + escapeHtml(t('rework_empty')) + '</li>';
     } else {
       reworkList.innerHTML = state.reworks.map(function (r) {
-        return '<li><span>' + escapeHtml(r.label) + '</span><button type="button" data-id="' + r.id + '" title="Usuń przeróbkę z wspólnej listy">✕</button></li>';
+        return '<li><span>' + escapeHtml(r.label) + '</span><button type="button" data-id="' + r.id + '" title="' + escapeHtml(t('rework_remove_title')) + '">✕</button></li>';
       }).join('');
     }
   }
@@ -938,7 +1163,7 @@
     sampleEmpty.style.display = 'none';
     sampleGrid.innerHTML = state.samples.map(function (sample) {
       var reworksHtml = state.reworks.length === 0
-        ? '<p class="sample-card__empty">Dodaj przeróbki do wspólnej listy.</p>'
+        ? '<p class="sample-card__empty">' + escapeHtml(t('sample_no_reworks')) + '</p>'
         : state.reworks.map(function (r) {
             var checked = sample.reworkIds.indexOf(r.id) !== -1;
             return '<label class="sample-card__rework-item"><input type="checkbox" data-sample="' + sample.id + '" data-rework="' + r.id + '" ' + (checked ? 'checked' : '') + '/><span>' + escapeHtml(r.label) + '</span></label>';
@@ -946,9 +1171,9 @@
       return (
         '<div class="sample-card">' +
         '<div class="sample-card__header"><h3>' + escapeHtml(sample.name) + '</h3>' +
-        '<button type="button" data-remove-sample="' + sample.id + '" title="Usuń sampel">✕</button></div>' +
+        '<button type="button" data-remove-sample="' + sample.id + '" title="' + escapeHtml(t('sample_remove_title')) + '">✕</button></div>' +
         '<div class="sample-card__reworks">' + reworksHtml + '</div>' +
-        '<textarea class="sample-card__notes" data-notes="' + sample.id + '" placeholder="Uwagi dotyczące tego sampla…">' + escapeHtml(sample.notes) + '</textarea>' +
+        '<textarea class="sample-card__notes" data-notes="' + sample.id + '" placeholder="' + escapeHtml(t('sample_notes_placeholder')) + '">' + escapeHtml(sample.notes) + '</textarea>' +
         '</div>'
       );
     }).join('');
@@ -1043,24 +1268,20 @@
       try {
         parsed = JSON.parse(reader.result);
       } catch (e) {
-        window.alert('Nie udało się odczytać pliku stanu: to nie jest poprawny plik JSON.');
+        window.alert(t('import_bad_json'));
         return;
       }
 
       if (parsed.reportId && parsed.reportId !== DATA.reportId) {
-        var proceedDifferent = window.confirm(
-          'Ten plik stanu pochodzi z innego raportu (inne pliki Gerber/BOM) — oznaczenia mogą się nie zgadzać. ' +
-          'Zaimportować mimo to?'
-        );
+        var proceedDifferent = window.confirm(t('import_different_report'));
         if (!proceedDifferent) return;
       } else if (state.lastModified && parsed.lastModified && parsed.lastModified < state.lastModified) {
-        var proceedOlder = window.confirm(
-          'Importowany plik jest STARSZY niż obecny stan w tej przeglądarce (obecny: ' +
-          new Date(state.lastModified).toLocaleString() + ', w pliku: ' +
-          new Date(parsed.lastModified).toLocaleString() + '). Import nadpisze bieżące dane starszymi. Kontynuować?'
-        );
+        var proceedOlder = window.confirm(t('import_older_confirm', {
+          current: new Date(state.lastModified).toLocaleString(),
+          imported: new Date(parsed.lastModified).toLocaleString(),
+        }));
         if (!proceedOlder) return;
-      } else if (!window.confirm('Zaimportować stan z pliku? Nadpisze to bieżące dane w tej przeglądarce.')) {
+      } else if (!window.confirm(t('import_confirm'))) {
         return;
       }
 
@@ -1082,10 +1303,10 @@
       refreshAllViews();
       updateMappingHint();
       persist();
-      window.alert('Zaimportowano stan z pliku.');
+      window.alert(t('import_success'));
     };
     reader.onerror = function () {
-      window.alert('Nie udało się odczytać pliku.');
+      window.alert(t('import_read_error'));
     };
     reader.readAsText(file);
   }

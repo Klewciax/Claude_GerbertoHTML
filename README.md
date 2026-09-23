@@ -1,5 +1,7 @@
 # GerbertoHTML — generator raportów Assembly / Traceability dla PCB
 
+*[Deutsche Version dieser Anleitung](README.de.md)*
+
 Narzędzie CLI w Pythonie: wskazujesz pliki **Gerber**, **BOM** (CSV/XML) i opcjonalnie **pick-and-place**
 (CSV), a na wyjściu dostajesz **jeden samodzielny plik HTML** z dwiema zakładkami:
 
@@ -24,6 +26,14 @@ nadpisać przypadkiem nowszej pracy starszym plikiem.
 Narzędzie jest w 100% Pythonem — **nie wymaga Node.js** (wcześniejsza wersja korzystała z Node.js do
 renderowania Gerberów; zostało to zastąpione czysto-pythonową biblioteką `gerbonara`, patrz sekcja
 architektura niżej).
+
+**Wersja językowa raportu:** w prawym górnym rogu wygenerowanego raportu jest przełącznik **PL / DE** —
+zmienia język całego interfejsu (etykiety, przyciski, nagłówki tabel, komunikaty) bez ponownego
+generowania pliku, więc jeden `report.html` można wysłać zarówno polsko-, jak i niemieckojęzycznemu
+odbiorcy. Wybór zapamiętuje się w przeglądarce (niezależnie od `localStorage` konkretnego raportu).
+Ostrzeżenia z parsowania plików wejściowych (widoczne w panelu "Dane wejściowe") oraz komunikaty
+konsoli narzędzia pozostają po polsku niezależnie od tego przełącznika — dotyczą osoby uruchamiającej
+narzędzie, nie odbiorcy raportu.
 
 ## Instalacja (3 kroki)
 
@@ -225,6 +235,11 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
   `copper`/`mask`/`silk`/`paste`/`outline`/`edge`/`courtyard`/`inner`). Plik o nierozpoznanej w
   ogóle nazwie nadal zostanie wyrenderowany (w neutralnym kolorze, pokazany po obu stronach płytki)
   — patrz "Znane ograniczenia".
+  Znaki opisu (silkscreen) z "dziurą" (np. `0`, `R`, `8`, `Q`) wyeksportowane jako wypełnione regiony
+  wektorowe czcionki TrueType (typowe dla Altium/KiCad) są renderowane z prawdziwie wyciętym otworem
+  (maska SVG odzwierciedlająca polaryzację "clear" z pliku Gerber), zamiast wyjść jako w pełni
+  wypełniony kształt — to dotyczy tylko plików, które faktycznie używają takiej geometrii; pozostałe
+  renderują się bez dodatkowego narzutu.
 
   **Domyślnie w widoku Assembly widoczne są: obrys, miedź zewnętrzna (góra/dół), silkscreen, pasta,
   courtyard i wiertła.** Miedź zewnętrzna jest celowo pokazywana — to na niej leżą pola lutownicze
