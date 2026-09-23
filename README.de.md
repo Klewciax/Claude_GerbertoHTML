@@ -317,10 +317,14 @@ schaltet die Ansicht um:
 
 - **Gruppiert (Standard)** — Zeilen werden nach MPN zusammengefasst (fehlt diese, nach Wert+Footprint),
   unabhängig davon, wie sie in der ursprünglichen Stücklistendatei gruppiert waren. Jede Zeile hat ein
-  editierbares Feld **„Benötigt“** (Standard = Anzahl der Positionen/Bezeichnungen, kann überschrieben
-  werden, z. B. um einen Vorrat einzurechnen) sowie die Felder **„Geliefert“** und **„Bestückt“** —
-  Zahlen, die manuell eingegeben oder per Schaltfläche **„Alles“** gesetzt werden (setzt den Wert =
-  Benötigt). Die Fehlmenge wird automatisch berechnet und ist sowohl in der Zeile als auch im
+  editierbares Feld **„Benötigt“** (Standard = Anzahl der Positionen/Bezeichnungen **mal Anzahl zu
+  bestückender Platinen**, wenn diese gesetzt ist — siehe Abschnitt "Produktionsplanung" unten; ohne
+  sie funktioniert es wie bisher, lässt sich aber immer manuell überschreiben, z. B. um einen Vorrat
+  einzurechnen), das Feld **„Bestellt“** (wie viel tatsächlich beim Lieferanten bestellt wurde — für
+  die gesamte Charge), das Feld **„Geliefert“** (für die gesamte Charge) sowie das Feld **„Bestückt“**
+  (für die **aktuell ausgewählte Platine** — siehe unten) — Zahlen, die manuell eingegeben oder per
+  Schaltfläche **„Alles“** gesetzt werden (setzt den Wert = Benötigt, bei Bestückt = Benötigt pro
+  Platine). Die Fehlmenge wird automatisch berechnet und ist sowohl in der Zeile als auch im
   zusammenfassenden Panel **„Fehlmengen“** unten auf der Assembly-Seite sichtbar.
 - **Flach (ohne Gruppierung)** — jede Bezeichnung als eigene Zeile, zum schnellen Auffinden einer
   einzelnen Position auf der Platine; zeigt den Mengenstatus der gesamten Gruppe, zu der sie gehört, an,
@@ -385,6 +389,39 @@ eine Auswahlliste **„Bestückungsvariante“**. Ihr Umschalten:
 
 Wurde nur eine Stückliste erkannt (der typische Fall), ist die Variantenliste ausgeblendet, und am
 bisherigen Verhalten ändert sich nichts.
+
+## Produktionsplanung (Projektnummer, Stückzahl, Bestückung pro Platine)
+
+In der Assembly-Seitenleiste, unter der Variantenauswahl, gibt es ein Panel **„Projektnummer“** /
+**„Anzahl zu bestückender Platinen“** — zwei einfache, immer verfügbare Felder. Werden beide
+ausgefüllt, aktiviert das eine zusätzliche Verfolgung, unabhängig für jede Bestückungsvariante (gibt
+es Varianten, hat jede ihre eigene Projektnummer und eigene Stückzahl, getrennt einstellbar):
+
+- **Anzahl zu bestückender Platinen** multipliziert das Feld **„Benötigt“** jedes Bauteils mit dieser
+  Zahl (z. B. ein Widerstand wird 2× pro Platine benötigt, bei 10 zu bauenden Stück → Benötigt = 20)
+  — das ist die Menge für die **gesamte Produktionscharge**, zum Vergleich mit dem, was tatsächlich
+  bestellt/geliefert wurde.
+- Ist die Stückzahl größer als 1, erscheint unter diesen Feldern eine Auswahlliste **„Aktuell
+  bestückte Platine“** (z. B. `P2024-118_001`, `P2024-118_002`, …). Das Feld **„Bestückt“** in der
+  Bauteilliste bezieht sich immer auf **genau diese eine, ausgewählte Platine** — jede physische
+  Platine hat ihre eigene, unabhängige Bestückungscheckliste (die Spaltenüberschrift zeigt, auf welche
+  Platine sie sich bezieht). Die Zusammenfassung oben in der Seitenleiste und das Panel „Fehlmengen“
+  zeigen die **Summe aller bestückten Teile über alle Platinen hinweg**, geben also einen Gesamtüberblick
+  über den Fortschritt der ganzen Charge.
+- **Bestellt** und **Geliefert** werden für die gesamte Charge auf einmal geführt (Bauteile werden
+  typischerweise für alle Platinen zusammen bestellt/angenommen, nicht einzeln pro Platine). Sobald das
+  Feld „Bestellt“ für ein Bauteil verwendet wird, zeigt das Panel „Fehlmengen“ zusätzlich **„aus
+  Bestellung nicht angekommen: N“**, wenn die gelieferte Menge kleiner ist als die bestellte — genau
+  das beantwortet die Frage "ist die bestellte Menge an Bauteilen tatsächlich angekommen".
+- Sind beide Felder (Projektnummer und Stückzahl) ausgefüllt, erscheinen im Reiter **Traceability**
+  automatisch Muster mit den Namen `PROJEKTNUMMER_001`, `PROJEKTNUMMER_002`, … bis zur eingestellten
+  Stückzahl (Nummerierung mit führenden Nullen, Breite passend zur Stückzahl). Das funktioniert nur in
+  eine Richtung — eine Verringerung der Stückzahl oder eine Änderung der Projektnummer **löscht oder
+  benennt niemals** bereits vorhandene Muster um (damit nicht versehentlich jemandes Notizen/Nacharbeiten
+  verloren gehen); es werden nur die fehlenden erzeugt.
+- Ohne Ausfüllen dieser Felder funktioniert das Tool genau wie bisher (eine einzige, implizite
+  „Platine“, Benötigt = Wert aus der Stückliste, keine Auswahlliste für Platinen) — diese Funktion ist
+  vollständig optional.
 
 ## Fotos bei Nacharbeiten (Traceability)
 

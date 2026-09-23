@@ -122,6 +122,21 @@ def build_report_html(
             <select id="variantSelect"></select>
           </div>
 
+          <div class="production-panel">
+            <div class="production-panel__field">
+              <label for="projectNumberInput" data-i18n="project_number_label">Numer projektu</label>
+              <input type="text" id="projectNumberInput" data-i18n-placeholder="project_number_placeholder" placeholder="np. P2024-118" />
+            </div>
+            <div class="production-panel__field">
+              <label for="unitCountInput" data-i18n="unit_count_label">Ilość sztuk do montażu</label>
+              <input type="number" id="unitCountInput" min="0" step="1" />
+            </div>
+            <div class="production-panel__field" id="unitPickerField" style="display:none;">
+              <label for="unitSelect" data-i18n="unit_picker_label">Aktualnie montowana płytka</label>
+              <select id="unitSelect"></select>
+            </div>
+          </div>
+
           <div class="assembly-tab__summary">
             <div><span data-i18n="summary_positions">Pozycje</span>: <strong id="summaryTotal">0</strong></div>
             <div><span data-i18n="summary_delivered">Dostarczono</span>: <strong id="summaryDelivered">0/0</strong></div>

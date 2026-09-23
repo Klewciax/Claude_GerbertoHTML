@@ -298,10 +298,14 @@ widok:
 
 - **Zgrupowany (domyślny)** — wiersze łączone po MPN (a gdy go brak — po Wartości+Footprincie),
   niezależnie od tego, jak były pogrupowane w oryginalnym pliku BOM. Każdy wiersz ma edytowalne pole
-  **„Potrzeba”** (domyślnie = liczba pozycji/refdesów, można nadpisać np. żeby doliczyć zapas),
-  oraz pola **„Dostarczono”** i **„Zamontowano”** — liczby wpisywane ręcznie lub przyciskiem
-  **„Wszystko”** (ustawia wartość = potrzeba). Brakująca ilość liczy się automatycznie i jest
-  widoczna zarówno przy wierszu, jak i w zbiorczym panelu **„Braki”** na dole strony Assembly.
+  **„Potrzeba”** (domyślnie = liczba pozycji/refdesów **razy ilość sztuk do montażu**, gdy ta jest
+  ustawiona — patrz sekcja "Planowanie produkcji" niżej; bez niej działa jak dotychczas, można też
+  zawsze nadpisać ręcznie np. żeby doliczyć zapas), pole **„Zamówiono”** (ile faktycznie zamówiono u
+  dostawcy — dla całej partii), pole **„Dostarczono”** (dla całej partii) oraz pole **„Zamontowano”**
+  (dla **aktualnie wybranej sztuki** — patrz niżej) — liczby wpisywane ręcznie lub przyciskiem
+  **„Wszystko”** (ustawia wartość = potrzeba, a dla Zamontowano = potrzeba na jedną sztukę). Brakująca
+  ilość liczy się automatycznie i jest widoczna zarówno przy wierszu, jak i w zbiorczym panelu
+  **„Braki”** na dole strony Assembly.
 - **Płaski (bez grupowania)** — każdy refdes jako osobny wiersz, do szybkiego zlokalizowania
   pojedynczej pozycji na płytce; pokazuje status ilościowy całej grupy, do której należy, ale nie
   pozwala edytować liczb (edycja jest tylko w widoku zgrupowanym).
@@ -362,6 +366,36 @@ lista rozwijana **„Wariant montażu”**. Przełączenie jej:
 
 Gdy wykryto tylko jeden BOM (typowy przypadek), lista wariantów jest ukryta i nic się nie zmienia w
 dotychczasowym działaniu.
+
+## Planowanie produkcji (numer projektu, ilość sztuk, montaż per płytka)
+
+W sidebarze Assembly, pod wyborem wariantu, jest panel **„Numer projektu”** / **„Ilość sztuk do
+montażu”** — dwa proste, zawsze dostępne pola. Wypełnienie ich obu włącza dodatkowe śledzenie,
+niezależne dla każdego wariantu montażu (jeśli są warianty — każdy ma swój własny numer projektu i
+swoją własną ilość, ustawiane osobno):
+
+- **Ilość sztuk do montażu** mnoży pole **„Potrzeba”** każdej części razy tę liczbę (np. rezystor
+  potrzebny 2× na jednej płytce, przy 10 sztukach do zbudowania → Potrzeba = 20) — to jest ilość na
+  **całą partię produkcyjną**, do porównania z tym, ile faktycznie zamówiono/dostarczono.
+- Gdy ilość sztuk jest większa niż 1, pod tymi polami pojawia się lista rozwijana **„Aktualnie
+  montowana płytka”** (np. `P2024-118_001`, `P2024-118_002`, ...). Pole **„Zamontowano”** w liście
+  komponentów dotyczy zawsze **tej jednej, wybranej sztuki** — każda fizyczna płytka ma swój własny,
+  niezależny checklist montażu (nagłówek kolumny pokazuje, której sztuki dotyczy). Podsumowanie na
+  górze sidebara i panel „Braki” pokazują **sumę zamontowanych ze wszystkich sztuk** razem, więc dają
+  ogólny obraz postępu całej partii.
+- **Zamówiono** i **Dostarczono** są liczone dla całej partii naraz (typowo zamawia/odbiera się
+  komponenty hurtowo na wszystkie sztuki na raz, nie osobno na każdą płytkę). Gdy pole „Zamówiono”
+  zostanie użyte dla danej części, panel „Braki” dodatkowo pokaże **„nie doszło z zamówienia: N”**,
+  jeśli dostarczona ilość jest mniejsza niż zamówiona — to właśnie odpowiada na pytanie "czy
+  zamówiona ilość elementów faktycznie doszła".
+- Gdy oba pola (numer projektu i ilość sztuk) są wypełnione, w zakładce **Traceability** automatycznie
+  pojawiają się sample o nazwach `NUMERPROJEKTU_001`, `NUMERPROJEKTU_002`, ... aż do ustawionej
+  ilości (numeracja z zerami wiodącymi, szerokość dopasowana do ilości sztuk). Działa to tylko w jedną
+  stronę — zmniejszenie ilości albo zmiana numeru projektu **nigdy nie usuwa ani nie zmienia nazwy**
+  już istniejących sampli (żeby nie stracić przypadkiem czyichś notatek/przeróbek), tworzone są tylko
+  brakujące.
+- Bez wypełnienia tych pól narzędzie działa dokładnie tak jak dotychczas (jedna, domyślna "sztuka",
+  Potrzeba = wartość z BOM, bez rozwijanej listy sztuk) — to w pełni opcjonalna funkcja.
 
 ## Zdjęcia przy przeróbkach (Traceability)
 

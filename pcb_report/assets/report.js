@@ -28,6 +28,11 @@
       input_data_toggle_title: 'Pokaż/ukryj',
       input_gerber_label: 'Plik(i) Gerber',
       variant_label: 'Wariant montażu',
+      project_number_label: 'Numer projektu',
+      project_number_placeholder: 'np. P2024-118',
+      unit_count_label: 'Ilość sztuk do montażu',
+      unit_picker_label: 'Aktualnie montowana płytka',
+      unit_label_generic: 'sztuka {n}',
       summary_positions: 'Pozycje',
       summary_delivered: 'Dostarczono',
       summary_mounted: 'Zamontowano',
@@ -57,16 +62,19 @@
       chip_title_unplaced: 'Brak pozycji — kliknij, aby ustawić na płytce',
       chip_title_reposition: 'Kliknij, aby zmienić pozycję na płytce',
       unplaced_label: 'Brak pozycji: {list}',
+      flat_ordered: 'Zamówiono (część): {ordered}/{needed}',
       flat_delivered: 'Dostarczono (część): {delivered}/{needed}',
       flat_mounted: 'Zamontowano (część): {mounted}/{needed}',
       th_designators: 'Oznaczenia',
       th_value_footprint: 'Wartość / Footprint',
       th_needed: 'Potrzeba',
+      th_ordered: 'Zamówiono',
       th_delivered: 'Dostarczono',
       th_mounted: 'Zamontowano',
       th_designator_single: 'Oznaczenie',
       th_part_status: 'Status części',
       shortage_missing_delivery: 'brakuje dostawy: {n}',
+      shortage_missing_from_order: 'nie doszło z zamówienia: {n}',
       shortage_missing_mount: 'brakuje montażu: {n}',
       shortage_needed: 'potrzeba: {n}',
       layer_type_copper: 'Miedź',
@@ -111,6 +119,11 @@
       input_data_toggle_title: 'Anzeigen/Ausblenden',
       input_gerber_label: 'Gerber-Datei(en)',
       variant_label: 'Bestückungsvariante',
+      project_number_label: 'Projektnummer',
+      project_number_placeholder: 'z. B. P2024-118',
+      unit_count_label: 'Anzahl zu bestückender Platinen',
+      unit_picker_label: 'Aktuell bestückte Platine',
+      unit_label_generic: 'Platine {n}',
       summary_positions: 'Positionen',
       summary_delivered: 'Geliefert',
       summary_mounted: 'Bestückt',
@@ -140,16 +153,19 @@
       chip_title_unplaced: 'Keine Position — klicken, um sie auf der Platine zu setzen',
       chip_title_reposition: 'Klicken, um die Position auf der Platine zu ändern',
       unplaced_label: 'Keine Position: {list}',
+      flat_ordered: 'Bestellt (Bauteil): {ordered}/{needed}',
       flat_delivered: 'Geliefert (Bauteil): {delivered}/{needed}',
       flat_mounted: 'Bestückt (Bauteil): {mounted}/{needed}',
       th_designators: 'Bezeichnungen',
       th_value_footprint: 'Wert / Footprint',
       th_needed: 'Benötigt',
+      th_ordered: 'Bestellt',
       th_delivered: 'Geliefert',
       th_mounted: 'Bestückt',
       th_designator_single: 'Bezeichnung',
       th_part_status: 'Bauteilstatus',
       shortage_missing_delivery: 'Lieferung fehlt: {n}',
+      shortage_missing_from_order: 'aus Bestellung nicht angekommen: {n}',
       shortage_missing_mount: 'Bestückung fehlt: {n}',
       shortage_needed: 'benötigt: {n}',
       layer_type_copper: 'Kupfer',
@@ -313,7 +329,7 @@
   // Persisted state (localStorage) merged on top of the generated data
   // ---------------------------------------------------------------------
   function defaultPersisted() {
-    return { manualPlacements: {}, reworks: [], samples: [], variantProgress: {}, groupByPart: true, activeVariant: null, layerVisibility: {}, lastModified: null };
+    return { manualPlacements: {}, reworks: [], samples: [], variantProgress: {}, production: {}, groupByPart: true, activeVariant: null, layerVisibility: {}, lastModified: null };
   }
 
   // Reworks saved/exported before photo attachments existed have no
@@ -323,6 +339,35 @@
     return (reworks || []).map(function (r) {
       return Object.assign({ photos: [] }, r);
     });
+  }
+
+  // Per-part stock saved before per-unit mounted tracking existed has a
+  // flat `mounted` number covering the whole (implicit single-unit) batch.
+  // That value becomes unit 1's mounted count, so upgrading a report that
+  // never touches the new "ilość sztuk" feature keeps behaving exactly as
+  // before (unit count defaults to 1, so total mounted === that one value).
+  // Also defaults `ordered` (new field) and normalizes `units` to an object.
+  function normalizeVariantProgress(variantProgress) {
+    var out = {};
+    Object.keys(variantProgress || {}).forEach(function (variantName) {
+      var parts = variantProgress[variantName] || {};
+      var normalizedParts = {};
+      Object.keys(parts).forEach(function (key) {
+        var p = parts[key] || {};
+        var units = p.units || {};
+        if (p.mounted != null && !p.units) {
+          units = { '1': { mounted: p.mounted } };
+        }
+        normalizedParts[key] = {
+          neededOverride: p.neededOverride != null ? p.neededOverride : null,
+          ordered: p.ordered || 0,
+          delivered: p.delivered || 0,
+          units: units,
+        };
+      });
+      out[variantName] = normalizedParts;
+    });
+    return out;
   }
 
   function loadPersisted() {
@@ -341,7 +386,8 @@
         manualPlacements: parsed.manualPlacements || {},
         reworks: normalizeReworks(parsed.reworks),
         samples: parsed.samples || [],
-        variantProgress: variantProgress,
+        variantProgress: normalizeVariantProgress(variantProgress),
+        production: parsed.production || {},
         groupByPart: parsed.groupByPart != null ? parsed.groupByPart : true,
         activeVariant: parsed.activeVariant || null,
         layerVisibility: parsed.layerVisibility || {},
@@ -371,6 +417,7 @@
       reworks: state.reworks,
       samples: state.samples,
       variantProgress: state.variantProgress,
+      production: state.production,
       groupByPart: state.groupByPart,
       activeVariant: state.activeVariant,
       layerVisibility: state.layerVisibility,
@@ -421,6 +468,7 @@
     reworks: persisted.reworks,
     samples: persisted.samples,
     variantProgress: persisted.variantProgress,
+    production: persisted.production,
     groupByPart: persisted.groupByPart,
     layerVisibility: persisted.layerVisibility,
     lastModified: persisted.lastModified,
@@ -434,8 +482,101 @@
 
   function getStock(key) {
     var vp = getVariantProgress();
-    if (!vp[key]) vp[key] = { neededOverride: null, delivered: 0, mounted: 0 };
+    if (!vp[key]) vp[key] = { neededOverride: null, ordered: 0, delivered: 0, units: {} };
     return vp[key];
+  }
+
+  // ---------------------------------------------------------------------
+  // Production planning: a project number + a quantity of physical boards
+  // to build, per variant (each assembly variant tracks its own run
+  // independently). Defaults to an unconfigured, effectively single-unit
+  // state so a report nobody sets this up for behaves exactly as before.
+  // ---------------------------------------------------------------------
+  function getProduction(variantName) {
+    if (!state.production[variantName]) {
+      state.production[variantName] = { projectNumber: '', unitCount: 0, activeUnit: 1 };
+    }
+    return state.production[variantName];
+  }
+
+  function activeProduction() {
+    return getProduction(state.activeVariant);
+  }
+
+  // The *effective* unit count is always at least 1 -- "ilość sztuk"
+  // being unset/0 means the feature isn't engaged, which is exactly the
+  // single-implicit-unit behavior this app always had.
+  function activeUnitCount() {
+    return activeProduction().unitCount || 1;
+  }
+
+  function activeUnitKey() {
+    var prod = activeProduction();
+    var count = activeUnitCount();
+    var u = prod.activeUnit || 1;
+    if (u > count) u = count;
+    if (u < 1) u = 1;
+    return String(u);
+  }
+
+  function getUnitStock(key) {
+    var stock = getStock(key);
+    var uKey = activeUnitKey();
+    if (!stock.units[uKey]) stock.units[uKey] = { mounted: 0 };
+    return stock.units[uKey];
+  }
+
+  // How many of this part are mounted across *every* unit of the current
+  // batch (not just the one currently selected) -- used for the overall
+  // summary/marker color/shortage panel, which should reflect the whole
+  // production run's progress, not just whichever single board is active.
+  function totalMountedFor(key) {
+    var stock = getStock(key);
+    var count = activeUnitCount();
+    var total = 0;
+    for (var i = 1; i <= count; i++) {
+      var u = stock.units[String(i)];
+      if (u) total += u.mounted || 0;
+    }
+    return total;
+  }
+
+  function perUnitNeeded(key) {
+    var group = partGroupsByKey[key];
+    return group ? group.bomNeeded : 1;
+  }
+
+  function padUnitNumber(n, count) {
+    var width = Math.max(3, String(count).length);
+    var s = String(n);
+    while (s.length < width) s = '0' + s;
+    return s;
+  }
+
+  function unitDisplayLabel(prod, index) {
+    if (prod.projectNumber) return prod.projectNumber + '_' + padUnitNumber(index, prod.unitCount);
+    return t('unit_label_generic', { n: index });
+  }
+
+  // Whenever the project number and a quantity are both set, every
+  // "<NUMBER>_NNN" sample that doesn't already exist in Traceability gets
+  // created -- but existing samples are never renamed or removed here
+  // (e.g. lowering the quantity, or fixing a typo in the project number),
+  // since silently deleting someone's traceability notes would be a much
+  // worse failure than leaving a stray extra sample card around.
+  function ensureAutoSamples() {
+    var prod = activeProduction();
+    if (!prod.projectNumber || !prod.unitCount) return;
+    var added = false;
+    for (var i = 1; i <= prod.unitCount; i++) {
+      var label = prod.projectNumber + '_' + padUnitNumber(i, prod.unitCount);
+      var exists = state.samples.some(function (s) { return s.name === label; });
+      if (!exists) {
+        state.samples.push({ id: uid('smp'), name: label, reworkIds: [], notes: '' });
+        added = true;
+      }
+    }
+    if (added) renderSamples();
   }
 
   function manualPlacementsOnly() {
@@ -459,11 +600,16 @@
     persist();
   }
 
+  // "Potrzeba" is the total for the whole production run: per-unit BOM
+  // quantity times how many boards are being built (1 when the "ilość
+  // sztuk" feature is untouched, so this is unchanged for anyone who
+  // ignores it). An explicit override is always an absolute total,
+  // exactly as before -- it is not itself re-scaled if the quantity
+  // changes later, same as it was never auto-derived once overridden.
   function neededFor(key) {
     var stock = getStock(key);
     if (stock.neededOverride != null) return stock.neededOverride;
-    var group = partGroupsByKey[key];
-    return group ? group.bomNeeded : 1;
+    return perUnitNeeded(key) * activeUnitCount();
   }
 
   function tierFor(value, needed) {
@@ -474,7 +620,7 @@
   function statusFillForKey(key) {
     var needed = neededFor(key);
     var stock = getStock(key);
-    var mountedTier = tierFor(stock.mounted, needed);
+    var mountedTier = tierFor(totalMountedFor(key), needed);
     if (mountedTier === 'full') return 'var(--marker-mounted-full)';
     if (mountedTier === 'partial') return 'var(--marker-mounted-partial)';
     var deliveredTier = tierFor(stock.delivered, needed);
@@ -566,6 +712,8 @@
   function groupedRowHtml(row) {
     var needed = neededFor(row.key);
     var stock = getStock(row.key);
+    var unitNeeded = perUnitNeeded(row.key);
+    var unitStock = getUnitStock(row.key);
     var selected = state.selection.key === row.key && !state.selection.designator;
     return (
       '<tr class="' + (selected ? 'is-selected' : '') + '" data-row-key="' + escapeHtml(row.key) + '">' +
@@ -575,8 +723,9 @@
       '</td>' +
       '<td><div>' + escapeHtml(row.value || '—') + '</div><div class="component-list__footprint">' + escapeHtml(row.footprint || '') + '</div></td>' +
       '<td data-action="stop">' + neededCellHtml(row.key, needed) + '</td>' +
+      '<td data-action="stop">' + qtyCellHtml(row.key, 'ordered', stock.ordered, needed) + '</td>' +
       '<td data-action="stop">' + qtyCellHtml(row.key, 'delivered', stock.delivered, needed) + '</td>' +
-      '<td data-action="stop">' + qtyCellHtml(row.key, 'mounted', stock.mounted, needed) + '</td>' +
+      '<td data-action="stop">' + qtyCellHtml(row.key, 'mounted', unitStock.mounted, unitNeeded) + '</td>' +
       '</tr>'
     );
   }
@@ -584,6 +733,8 @@
   function flatRowHtml(entry) {
     var needed = neededFor(entry.key);
     var stock = getStock(entry.key);
+    var unitNeeded = perUnitNeeded(entry.key);
+    var unitStock = getUnitStock(entry.key);
     var selected = state.selection.designator === entry.designator;
     return (
       '<tr class="' + (selected ? 'is-selected' : '') + '" data-row-key="' + escapeHtml(entry.key) + '" data-designator="' + escapeHtml(entry.designator) + '">' +
@@ -592,15 +743,21 @@
       unplacedHintHtml([entry.designator]) +
       '</td>' +
       '<td><div>' + escapeHtml(entry.value || '—') + '</div><div class="component-list__footprint">' + escapeHtml(entry.footprint || '') + '</div></td>' +
-      '<td><div class="component-list__flat-status">' + escapeHtml(t('flat_delivered', { delivered: stock.delivered, needed: needed })) + '</div>' +
-      '<div class="component-list__flat-status">' + escapeHtml(t('flat_mounted', { mounted: stock.mounted, needed: needed })) + '</div></td>' +
+      '<td><div class="component-list__flat-status">' + escapeHtml(t('flat_ordered', { ordered: stock.ordered, needed: needed })) + '</div>' +
+      '<div class="component-list__flat-status">' + escapeHtml(t('flat_delivered', { delivered: stock.delivered, needed: needed })) + '</div>' +
+      '<div class="component-list__flat-status">' + escapeHtml(t('flat_mounted', { mounted: unitStock.mounted, needed: unitNeeded })) + '</div></td>' +
       '</tr>'
     );
   }
 
   function updateListHead() {
+    var mountedHeader = t('th_mounted');
+    var prod = activeProduction();
+    if (prod.unitCount > 1) {
+      mountedHeader += ' — ' + unitDisplayLabel(prod, prod.activeUnit || 1);
+    }
     listHead.innerHTML = state.groupByPart
-      ? '<tr><th>' + escapeHtml(t('th_designators')) + '</th><th>' + escapeHtml(t('th_value_footprint')) + '</th><th>' + escapeHtml(t('th_needed')) + '</th><th>' + escapeHtml(t('th_delivered')) + '</th><th>' + escapeHtml(t('th_mounted')) + '</th></tr>'
+      ? '<tr><th>' + escapeHtml(t('th_designators')) + '</th><th>' + escapeHtml(t('th_value_footprint')) + '</th><th>' + escapeHtml(t('th_needed')) + '</th><th>' + escapeHtml(t('th_ordered')) + '</th><th>' + escapeHtml(t('th_delivered')) + '</th><th>' + escapeHtml(mountedHeader) + '</th></tr>'
       : '<tr><th>' + escapeHtml(t('th_designator_single')) + '</th><th>' + escapeHtml(t('th_value_footprint')) + '</th><th>' + escapeHtml(t('th_part_status')) + '</th></tr>';
   }
 
@@ -630,7 +787,12 @@
     if (allBtn) {
       e.stopPropagation();
       var key = allBtn.dataset.key;
-      getStock(key)[allBtn.dataset.qtyAll] = neededFor(key);
+      var allKind = allBtn.dataset.qtyAll;
+      if (allKind === 'mounted') {
+        getUnitStock(key).mounted = perUnitNeeded(key);
+      } else {
+        getStock(key)[allKind] = neededFor(key);
+      }
       afterStockChange();
       return;
     }
@@ -652,6 +814,8 @@
     var value = Math.max(0, parseInt(input.value, 10) || 0);
     if (kind === 'needed') {
       getStock(key).neededOverride = value;
+    } else if (kind === 'mounted') {
+      getUnitStock(key).mounted = value;
     } else {
       getStock(key)[kind] = value;
     }
@@ -740,7 +904,7 @@
       var stock = getStock(row.key);
       totalNeeded += needed;
       totalDelivered += Math.min(stock.delivered, needed);
-      totalMounted += Math.min(stock.mounted, needed);
+      totalMounted += Math.min(totalMountedFor(row.key), needed);
     });
     document.getElementById('summaryTotal').textContent = totalNeeded;
     document.getElementById('summaryDelivered').textContent = totalDelivered + '/' + totalNeeded;
@@ -755,9 +919,14 @@
       var needed = neededFor(row.key);
       var stock = getStock(row.key);
       var missingDelivery = Math.max(0, needed - stock.delivered);
-      var missingMount = Math.max(0, needed - stock.mounted);
-      if (missingDelivery > 0 || missingMount > 0) {
-        items.push({ row: row, needed: needed, missingDelivery: missingDelivery, missingMount: missingMount });
+      // Only flagged once "Zamówiono" is actually used for this part --
+      // otherwise every report that ignores the ordering feature (ordered
+      // stays 0) would suddenly show a shortage warning on every single
+      // part, which would be a pure regression for existing users.
+      var missingFromOrder = stock.ordered > 0 ? Math.max(0, stock.ordered - stock.delivered) : 0;
+      var missingMount = Math.max(0, needed - totalMountedFor(row.key));
+      if (missingDelivery > 0 || missingFromOrder > 0 || missingMount > 0) {
+        items.push({ row: row, needed: needed, missingDelivery: missingDelivery, missingFromOrder: missingFromOrder, missingMount: missingMount });
       }
     });
     if (items.length === 0) {
@@ -769,6 +938,7 @@
     listEl.innerHTML = items.map(function (it) {
       var badges = '';
       if (it.missingDelivery > 0) badges += '<span class="shortage-panel__missing">' + escapeHtml(t('shortage_missing_delivery', { n: it.missingDelivery })) + '</span>';
+      if (it.missingFromOrder > 0) badges += '<span class="shortage-panel__missing">' + escapeHtml(t('shortage_missing_from_order', { n: it.missingFromOrder })) + '</span>';
       if (it.missingMount > 0) badges += '<span class="shortage-panel__missing">' + escapeHtml(t('shortage_missing_mount', { n: it.missingMount })) + '</span>';
       return (
         '<div class="shortage-panel__item">' +
@@ -1400,6 +1570,7 @@
   }
 
   function refreshAllViews() {
+    renderProductionPanel();
     updateListHead();
     renderComponentList();
     updateSummary();
@@ -1442,7 +1613,8 @@
       if (!parsed.variantProgress && parsed.stock) {
         importedVariantProgress[DATA.defaultVariant] = parsed.stock;
       }
-      state.variantProgress = importedVariantProgress;
+      state.variantProgress = normalizeVariantProgress(importedVariantProgress);
+      state.production = parsed.production || {};
       state.groupByPart = parsed.groupByPart != null ? parsed.groupByPart : true;
       state.layerVisibility = parsed.layerVisibility || {};
       state.lastModified = parsed.lastModified || new Date().toISOString();
@@ -1489,9 +1661,67 @@
   }
 
   // ---------------------------------------------------------------------
+  // Production planning (project number, quantity to build, which unit is
+  // currently being assembled) -- independent per variant, see
+  // getProduction()/activeProduction() above.
+  // ---------------------------------------------------------------------
+  var projectNumberInput = document.getElementById('projectNumberInput');
+  var unitCountInput = document.getElementById('unitCountInput');
+  var unitPickerField = document.getElementById('unitPickerField');
+  var unitSelect = document.getElementById('unitSelect');
+
+  function renderProductionPanel() {
+    var prod = activeProduction();
+    projectNumberInput.value = prod.projectNumber || '';
+    unitCountInput.value = prod.unitCount || '';
+    if (prod.unitCount > 1) {
+      unitPickerField.style.display = '';
+      var active = prod.activeUnit || 1;
+      var opts = [];
+      for (var i = 1; i <= prod.unitCount; i++) {
+        opts.push('<option value="' + i + '"' + (i === active ? ' selected' : '') + '>' + escapeHtml(unitDisplayLabel(prod, i)) + '</option>');
+      }
+      unitSelect.innerHTML = opts.join('');
+    } else {
+      unitPickerField.style.display = 'none';
+    }
+  }
+
+  projectNumberInput.addEventListener('change', function () {
+    activeProduction().projectNumber = projectNumberInput.value.trim();
+    ensureAutoSamples();
+    renderProductionPanel();
+    updateListHead();
+    persist();
+  });
+
+  unitCountInput.addEventListener('change', function () {
+    var prod = activeProduction();
+    var n = Math.max(0, parseInt(unitCountInput.value, 10) || 0);
+    prod.unitCount = n;
+    if (prod.activeUnit > n) prod.activeUnit = Math.max(1, n);
+    ensureAutoSamples();
+    renderProductionPanel();
+    updateListHead();
+    renderComponentList();
+    updateSummary();
+    renderShortagePanel();
+    refreshAllMarkerFills();
+    persist();
+  });
+
+  unitSelect.addEventListener('change', function () {
+    activeProduction().activeUnit = parseInt(unitSelect.value, 10) || 1;
+    updateListHead();
+    renderComponentList();
+    persist();
+  });
+
+  // ---------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------
   groupToggle.checked = state.groupByPart;
+  renderProductionPanel();
   updateListHead();
   renderComponentList();
   updateSummary();
