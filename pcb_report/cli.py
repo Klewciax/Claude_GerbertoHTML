@@ -44,12 +44,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--all-layers",
         action="store_true",
-        help="Wszystkie warstwy (w tym maska, miedź wewnętrzna, inne mechaniczne) są i tak zawsze "
-        "widoczne domyślnie w panelu 'Warstwy' raportu — ta flaga tylko rozszerza dobór plików "
-        "branych pod uwagę przy automatycznym dopasowaniu kadru/przybliżenia widoku płytki o te "
-        "właśnie warstwy, przydatne gdy któraś z nich wystaje poza obrys płytki i ma znaczenie dla "
-        "kadrowania. Bez wpływu na to, co widać — każdą warstwę i tak można dowolnie włączyć/wyłączyć "
-        "bezpośrednio w raporcie.",
+        help="Domyślnie w panelu 'Warstwy' raportu zaznaczone są tylko warstwy potrzebne do montażu "
+        "(obrys, silkscreen, pasta, courtyard, wiertła) — maska, miedź (zewnętrzna i wewnętrzna) oraz "
+        "inne warstwy mechaniczne/nierozpoznane są wczytane, ale odznaczone. Ta flaga zaznacza "
+        "wszystkie od razu i rozszerza o nie też dobór plików branych pod uwagę przy automatycznym "
+        "dopasowaniu kadru/przybliżenia widoku płytki. Każdą warstwę można i tak dowolnie włączyć/"
+        "wyłączyć bezpośrednio w raporcie, bez tej flagi.",
     )
     parser.add_argument("-o", "--output", default=None, metavar="PLIK", help="Ścieżka wyjściowego pliku HTML (domyślnie <KATALOG>/report.html).")
     parser.add_argument("--report-id", default=None, help="Wymuś konkretne ID raportu (klucz localStorage) zamiast wyliczonego automatycznie.")

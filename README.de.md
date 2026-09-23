@@ -157,7 +157,7 @@ Anschließend `report.html` im Browser öffnen.
 | `--unit {mm,inch}` | nein | Standardeinheit der Koordinaten in der Pick-and-Place-Datei, nur verwendet, wenn der Spaltenname selbst keine Einheit angibt (z. B. nur `X`/`Y` statt `Center-X(mm)`) — siehe unten. |
 | `-o, --output DATEI` | nein | Ausgabepfad (Standard: `<VERZEICHNIS>/report.html`). |
 | `--report-id ID` | nein | Erzwungener `localStorage`-Schlüssel (Standard: automatisch berechnet aus den Gerber-Dateinamen + der Menge der Bezeichnungen — ermöglicht die erneute Erzeugung des Berichts für dasselbe Projekt, ohne bereits gesetzte Checkboxen zu verlieren). |
-| `--all-layers` | nein | Alle Ebenen (auch Maske, innere Kupferlagen, sonstige mechanische) sind im Panel „Ebenen“ des Berichts ohnehin immer standardmäßig sichtbar — dieses Flag erweitert nur die Auswahl der Dateien, die bei der automatischen Bestimmung des Anfangs-Zooms/Bildausschnitts der Platine berücksichtigt werden, um genau diese Ebenen (siehe Abschnitt „Format der Eingabedateien“). |
+| `--all-layers` | nein | Standardmäßig alle Ebenen im Panel „Ebenen“ des Berichts aktivieren (auch Kupfer, Maske, innere Kupferlagen, sonstige mechanische), statt nur der für die Bestückung nötigen, und diese auch bei der automatischen Bestimmung des Anfangs-Zooms/Bildausschnitts der Platine berücksichtigen (siehe Abschnitt „Format der Eingabedateien“). Jede Ebene lässt sich trotzdem direkt im Bericht beliebig umschalten. |
 | `--non-interactive` | nein | Im Terminal nicht nach dem Zweck nicht erkannter Dateien fragen (siehe „Wie die automatische Erkennung funktioniert“) — solche Dateien einfach überspringen, wie in Versionen ohne diese Funktion. |
 
 ### Wie die automatische Erkennung funktioniert (und wie sie Stückliste von Pick-and-Place unterscheidet)
@@ -259,29 +259,28 @@ zu raten:
   widerspiegelt), statt als vollständig ausgefüllte Form zu erscheinen — dies betrifft nur Dateien, die
   tatsächlich solche Geometrie verwenden; die übrigen werden ohne zusätzlichen Mehraufwand gerendert.
 
-  **Alle geladenen Ebenen sind standardmäßig sichtbar** — einschließlich der Lötstoppmaske, innerer
-  (vergrabener) Kupferlagen und sonstiger, nicht erkannter mechanischer Ebenen von Altium
-  (`.GM<Nummer>` außerhalb von Umriss/Courtyard). Statt weniger nützliche Ebenen auszublenden, werden
-  sie stattdessen farblich unterschieden: Silkscreen und Courtyard haben **je eine eigene Farbe für
-  oben und unten** (damit man sie auf einen Blick unterscheiden kann, da beide Seiten gemeinsam in der
-  Liste erscheinen), und Maske/innere Kupferlagen/mechanische Ebenen/Lotpaste haben eigene, feste
-  Farben (siehe Legende im Panel „Ebenen“). Die reine Platinenansicht zeigt weiterhin nur die Ebenen,
+  **Standardmäßig sichtbar sind nur die für die Bestückung nötigen Ebenen: Umriss, Silkscreen,
+  Lotpaste, Courtyard und Bohrungen.** Kupfer (außen und innen), Lötstoppmaske sowie sonstige, nicht
+  erkannte mechanische Ebenen von Altium (`.GM<Nummer>` außerhalb von Umriss/Courtyard) werden geladen
+  und sind verfügbar, aber standardmäßig abgewählt — sie werden für die reine Bestückung nicht benötigt
+  und würden die Ansicht nur zumüllen (Kupfer ist auf den ersten Blick oft dicht/unübersichtlich,
+  mechanische Ebenen sind meist Fertigungsdokumentation, nicht die Platine selbst). Silkscreen und
+  Courtyard haben zusätzlich **je eine eigene Farbe für oben und unten** (damit man sie auf einen Blick
+  unterscheiden kann, da beide Seiten gemeinsam in der Liste erscheinen), die übrigen Typen haben eigene,
+  feste Farben (siehe Legende im Panel „Ebenen“). Die reine Platinenansicht zeigt nur aktivierte Ebenen,
   die zur aktuell gewählten Seite (Oben/Unten) passen oder als für beide Seiten gemeinsam markiert sind.
 
+  **Das ist nur eine Standardeinstellung, kein harter Filter** — die Klassifizierung der Ebenen beruht
+  auf einer Heuristik (Dateiname oder X2-Attribut), kann sich also bei einem untypischen Projekt irren.
   Im Bericht, oben rechts in der Platinenansicht, gibt es die Schaltfläche **„Ebenen“**, die ein Panel
   mit der Liste *jeder* geladenen Gerber-Datei einzeln öffnet (Name, Typ, Seite, Farbe) mit Checkbox —
   jede Ebene lässt sich beliebig ein- oder ausschalten, ohne das Tool erneut auszuführen; die Auswahl
-  wird wie der übrige Status gespeichert (localStorage + Export/Import). Die Klassifizierung der Ebenen
-  beruht auf einer Heuristik (Dateiname oder X2-Attribut), kann sich also bei einem untypischen Projekt
-  irren — das wirkt sich aber nicht darauf aus, ob eine Ebene sichtbar ist (das ist sie immer), sondern
-  nur auf ihre Farbe/Beschriftung im Panel.
+  wird wie der übrige Status gespeichert (localStorage + Export/Import).
 
-  Das Flag `--all-layers` **steuert nicht mehr die Sichtbarkeit** (es sind ohnehin immer alle Ebenen
-  sichtbar) — es bestimmt nur noch, welche Dateien bei der automatischen Bestimmung des Anfangs-Zooms/
-  Bildausschnitts der Platine berücksichtigt werden: standardmäßig nur Umriss/äußeres Kupfer/
-  Silkscreen/Lotpaste/Courtyard/Bohrungen (damit eine einzelne, ungünstig platzierte mechanische Ebene
-  den Bildausschnitt nicht verzerrt), mit `--all-layers` zusätzlich auch Maske, innere Kupferlagen und
-  sonstige mechanische Ebenen.
+  Das Flag `--all-layers` aktiviert sofort alle Ebenen (statt nur der für die Bestückung nötigen) und
+  erweitert außerdem die Dateiauswahl für die automatische Bestimmung des Anfangs-Zooms/Bildausschnitts
+  der Platine — nützlich, wenn Maske/innere Kupferlage/eine sonstige mechanische Ebene über den Umriss
+  der Platine hinausragt und für den Bildausschnitt relevant ist.
 
 ## Zuordnung von Stücklisten-Bauteilen → PCB-Visualisierung
 

@@ -51,10 +51,12 @@ _COLORS: dict[LayerType, str] = {
     "mechanical": "#b46fc9",
     "unknown": "#8fa0b3",
 }
-# With every layer now visible by default (see ASSEMBLY_RELEVANT_TYPES),
 # silk and courtyard need a top/bottom-distinct color each -- otherwise a
 # top and a bottom file of the same type render identically and are only
-# tellable apart by reading their name in the layer panel.
+# tellable apart by reading their name in the layer panel (this matters
+# even though only DEFAULT_VISIBLE_TYPES layers are checked by default,
+# since both sides of silk/courtyard are checked together and toggling
+# --all-layers or a hidden layer back on hits the same ambiguity).
 _SIDE_COLOR_OVERRIDES: dict[tuple[str, str], str] = {
     ("silk", "top"): "#f2f2f2",
     ("silk", "bottom"): "#f2d9a8",
@@ -82,21 +84,31 @@ _Z_ORDER: list[LayerType] = [
     "unknown", "mechanical", "inner_copper", "copper", "mask", "paste", "courtyard", "silk", "outline", "drill",
 ]
 
-# Layers actually useful for placing/checking components by hand. The outer
-# copper layer (top/bottom) is included: its pads are literally the
-# component footprints, which is the clearest visual cue for "where does
-# this part go" — confirmed by comparing against a manual KiCad layer
-# selection. Only *inner* (buried) copper is left out, since it's not
-# visible on either surface and irrelevant to placement; solder mask is
-# also left out (just a tint, adds nothing here). "mechanical" (see
-# _classify_type) is excluded too: it's a positively-identified Altium
-# GM<n> layer whose specific purpose (fab notes, dimensions, height
-# restrictions, ...) is defined per-project and can't be inferred from the
-# extension. "unknown" — a filename that doesn't match any recognized
-# convention at all — stays included, since it might be someone's
-# unconventionally-named board outline. All of the above are still
-# available via --all-layers.
+# Used only to decide which files anchor the auto-fit view frame (see
+# bbox_anchor_files below) -- deliberately broader than DEFAULT_VISIBLE_TYPES
+# below, since copper pads normally sit within the board outline anyway and
+# including them here does no harm, while a stray mechanical/mask file with
+# an oversized or oddly-placed bounding box (a real thing in practical
+# Altium projects) would distort the initial zoom if it were allowed to
+# anchor the frame.
 ASSEMBLY_RELEVANT_TYPES = {"outline", "silk", "paste", "copper", "courtyard", "drill", "unknown"}
+
+# Layers checked by default in the "Warstwy" panel -- the ones actually
+# needed to place/check components by hand: the board shape, silkscreen
+# (reference designators / outlines), solder paste (SMT pad locations) and
+# courtyard (component footprint boundaries), plus drill holes for
+# through-hole leads. Copper is deliberately left unchecked here even
+# though its pads mark where a part sits: it's dense/noisy at a glance and
+# not something an assembler needs on by default, only when actually
+# investigating a pad. Solder mask, inner (buried) copper and "mechanical"
+# (a positively-identified Altium GM<n> layer whose specific purpose --
+# fab notes, dimensions, height restrictions, ... -- is per-project and
+# can't be inferred from the extension) are left unchecked for the same
+# reason: they add visual noise without helping placement. "unknown" is
+# unchecked too now: in practice it's most often exactly those fab/notes
+# files, not a legitimately named board outline. All of the above are
+# still there, one click away, in the layer panel.
+DEFAULT_VISIBLE_TYPES = {"outline", "silk", "paste", "courtyard", "drill"}
 
 _TOP_EXTENSIONS = {"gtl", "gts", "gto", "gtp"}
 _BOTTOM_EXTENSIONS = {"gbl", "gbs", "gbo", "gbp"}
@@ -531,13 +543,7 @@ def _build_layers(files: list[_ParsedFile], all_layers: bool) -> list[GerberLaye
                 layer_type=f.layer_type,
                 side=f.side,
                 svg=svg,
-                # Every parsed layer is visible by default now -- the color
-                # (see _layer_color) is what tells them apart instead of
-                # hiding the less commonly needed ones (mask, inner copper,
-                # mechanical/margin). `all_layers` is kept only so
-                # --all-layers stays a harmless no-op for anyone still
-                # passing it.
-                default_visible=True,
+                default_visible=all_layers or f.layer_type in DEFAULT_VISIBLE_TYPES,
             )
         )
     return layers
@@ -571,13 +577,11 @@ def render_gerber_files(
         warnings.append("Żaden z wybranych plików nie został rozpoznany jako plik Gerber/Excellon z geometrią.")
         return GerberRenderResult(warnings=warnings)
 
-    # Every layer is visible by default in the report now (see
-    # GerberLayer.default_visible in _build_layers) -- this set is only
-    # used to decide which files anchor the auto-fit view frame, so a
-    # handful of outsized/oddly-placed mechanical or mask files (a real
-    # thing in practical Altium projects) can't distort the initial zoom
-    # of the *whole* board. --all-layers widens that anchor set to
-    # everything too, for a project where those actually matter for framing.
+    # Which files anchor the auto-fit view frame, so a handful of
+    # outsized/oddly-placed mechanical or mask files (a real thing in
+    # practical Altium projects) can't distort the initial zoom of the
+    # *whole* board. --all-layers widens this (and default layer
+    # visibility, see _build_layers) to everything.
     bbox_anchor_files = parsed_files if all_layers else [f for f in parsed_files if f.layer_type in ASSEMBLY_RELEVANT_TYPES]
 
     unknown = [f.path for f in parsed_files if f.layer_type == "unknown"]
@@ -585,8 +589,24 @@ def render_gerber_files(
         warnings.append(
             "Nie rozpoznano typu warstwy dla: "
             + ", ".join(Path(p).name for p in unknown)
-            + " — plik(i) wyrenderowano w neutralnym kolorze na obu stronach płytki."
+            + " — plik(i) wyrenderowano w neutralnym kolorze na obu stronach płytki"
+            + ("." if all_layers else ", domyślnie ukryte (patrz panel 'Warstwy') — to najczęściej dokumentacja/notatki fabrykanta, nie sama płytka.")
         )
+
+    if not all_layers:
+        _HIDDEN_TYPE_LABELS = {
+            "copper": "miedź zewnętrzna",
+            "mask": "maska lutownicza",
+            "inner_copper": "wewnętrzna miedź",
+            "mechanical": "inne warstwy mechaniczne Altium",
+        }
+        hidden_present = [t for t in ("copper", "mask", "inner_copper", "mechanical") if any(f.layer_type == t for f in parsed_files)]
+        if hidden_present:
+            warnings.append(
+                "Domyślnie ukryto (niepotrzebne do samego montażu): "
+                + ", ".join(_HIDDEN_TYPE_LABELS[t] for t in hidden_present)
+                + " — można je dowolnie włączyć w panelu 'Warstwy' raportu albo użyć --all-layers."
+            )
 
     bbox_source = bbox_anchor_files or parsed_files
     min_x, min_y, max_x, max_y = _union_bbox(bbox_source)
