@@ -110,6 +110,9 @@
       sample_software_label: 'Oprogramowanie',
       sample_software_none: '— brak —',
       sample_software_download: 'Pobierz',
+      theme_light_title: 'Jasny motyw',
+      theme_dark_title: 'Ciemny motyw',
+      sidebar_resize_title: 'Przeciągnij, aby zmienić szerokość panelu',
       persist_failed_warning: 'Nie udało się zapisać zmian lokalnie (localStorage) — prawdopodobnie brak miejsca (za dużo/za duże zdjęcia). Usuń część zdjęć albo wyeksportuj stan teraz, zanim zamkniesz kartę.',
       import_bad_json: 'Nie udało się odczytać pliku stanu: to nie jest poprawny plik JSON.',
       import_different_report: 'Ten plik stanu pochodzi z innego raportu (inne pliki Gerber/BOM) — oznaczenia mogą się nie zgadzać. Zaimportować mimo to?',
@@ -212,6 +215,9 @@
       sample_software_label: 'Software',
       sample_software_none: '— keine —',
       sample_software_download: 'Herunterladen',
+      theme_light_title: 'Helles Design',
+      theme_dark_title: 'Dunkles Design',
+      sidebar_resize_title: 'Ziehen, um die Panelbreite zu ändern',
       persist_failed_warning: 'Änderungen konnten lokal nicht gespeichert werden (localStorage) — vermutlich kein Speicherplatz mehr (zu viele/zu große Fotos). Entferne einige Fotos oder exportiere den Status jetzt, bevor du den Tab schließt.',
       import_bad_json: 'Statusdatei konnte nicht gelesen werden: keine gültige JSON-Datei.',
       import_different_report: 'Diese Statusdatei stammt aus einem anderen Bericht (andere Gerber-/BOM-Dateien) — Bezeichnungen stimmen möglicherweise nicht überein. Trotzdem importieren?',
@@ -269,6 +275,43 @@
     btn.addEventListener('click', function () { setLanguage(btn.dataset.lang); });
   });
   applyStaticTranslations();
+
+  // ---------------------------------------------------------------------
+  // Light/dark theme -- a page-level preference like the language, so it
+  // lives under its own storage key rather than the per-report state
+  // (someone's screen/preference isn't part of the traceability data).
+  // ---------------------------------------------------------------------
+  var THEME_STORAGE_KEY = 'pcb-report:theme';
+  var THEME = (function () {
+    try {
+      var saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+      return saved === 'dark' ? 'dark' : 'light';
+    } catch (e) {
+      return 'light';
+    }
+  })();
+
+  function applyTheme() {
+    if (THEME === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    document.querySelectorAll('#themeSwitch button').forEach(function (b) {
+      b.classList.toggle('is-active', b.dataset.theme === THEME);
+    });
+  }
+
+  function setTheme(theme) {
+    if (theme !== 'light' && theme !== 'dark') return;
+    THEME = theme;
+    try { window.localStorage.setItem(THEME_STORAGE_KEY, theme); } catch (e) { /* ignore */ }
+    applyTheme();
+  }
+  document.querySelectorAll('#themeSwitch button[data-theme]').forEach(function (btn) {
+    btn.addEventListener('click', function () { setTheme(btn.dataset.theme); });
+  });
+  applyTheme();
 
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
@@ -681,13 +724,98 @@
   bottomBtn.addEventListener('click', function () { setSide('bottom'); });
 
   // ---------------------------------------------------------------------
+  // Resizable sidebar -- a laptop-sized screen can make the fixed-width
+  // sidebar too cramped for the component table (see the column resizer
+  // below for the other half of that fix). A page-level preference like
+  // language/theme, not part of the per-report state -- someone's screen
+  // size isn't traceability data.
+  // ---------------------------------------------------------------------
+  var SIDEBAR_WIDTH_KEY = 'pcb-report:sidebarWidth';
+  var sidebarEl = document.querySelector('.assembly-tab__sidebar');
+  var sidebarResizer = document.getElementById('assemblySidebarResizer');
+  (function () {
+    try {
+      var saved = parseInt(window.localStorage.getItem(SIDEBAR_WIDTH_KEY), 10);
+      if (saved) sidebarEl.style.width = saved + 'px';
+    } catch (e) { /* ignore */ }
+    var dragging = false;
+    sidebarResizer.addEventListener('pointerdown', function (e) {
+      dragging = true;
+      document.body.classList.add('is-resizing-sidebar');
+      e.preventDefault();
+    });
+    document.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      var min = 320, max = Math.round(window.innerWidth * 0.75);
+      var w = Math.min(max, Math.max(min, e.clientX - sidebarEl.getBoundingClientRect().left));
+      sidebarEl.style.width = w + 'px';
+    });
+    document.addEventListener('pointerup', function () {
+      if (!dragging) return;
+      dragging = false;
+      document.body.classList.remove('is-resizing-sidebar');
+      try { window.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarEl.offsetWidth)); } catch (e) { /* ignore */ }
+    });
+  })();
+
+  // ---------------------------------------------------------------------
   // Component list
   // ---------------------------------------------------------------------
   var listBody = document.getElementById('componentListBody');
   var listHead = document.getElementById('componentListHead');
+  var listCols = document.getElementById('componentListCols');
   var listEmpty = document.getElementById('componentListEmpty');
   var listTable = document.getElementById('componentListTable');
   var groupToggle = document.getElementById('groupByPartToggle');
+
+  // Per-column widths, independent of one another (dragging one column
+  // doesn't steal width from its neighbor -- the table just grows and
+  // .component-list's own horizontal scrollbar takes over, same as it
+  // already did before this was resizable at all). Keyed by grouped/flat
+  // since those two views have a different column count. Also a
+  // page-level preference, not per-report state.
+  var COL_WIDTHS_KEY = 'pcb-report:colWidths';
+  var DEFAULT_COL_WIDTHS = { grouped: [190, 150, 70, 100, 100, 100], flat: [140, 160, 240] };
+  var colWidths = (function () {
+    var out = {};
+    var saved = null;
+    try { saved = JSON.parse(window.localStorage.getItem(COL_WIDTHS_KEY) || 'null'); } catch (e) { /* ignore */ }
+    ['grouped', 'flat'].forEach(function (mode) {
+      var def = DEFAULT_COL_WIDTHS[mode];
+      var s = saved && saved[mode];
+      out[mode] = (Array.isArray(s) && s.length === def.length) ? s.slice() : def.slice();
+    });
+    return out;
+  })();
+  function saveColWidths() {
+    try { window.localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(colWidths)); } catch (e) { /* ignore */ }
+  }
+  (function () {
+    var dragging = null; // { mode, index, startX, startWidth }
+    listHead.addEventListener('pointerdown', function (e) {
+      var handle = e.target.closest('.col-resizer');
+      if (!handle) return;
+      var mode = handle.dataset.colMode, index = parseInt(handle.dataset.colIndex, 10);
+      dragging = { mode: mode, index: index, startX: e.clientX, startWidth: colWidths[mode][index] };
+      handle.classList.add('is-active');
+      document.body.classList.add('is-resizing-col');
+      e.preventDefault();
+    });
+    document.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      var newWidth = Math.max(50, dragging.startWidth + (e.clientX - dragging.startX));
+      colWidths[dragging.mode][dragging.index] = newWidth;
+      var col = listCols.children[dragging.index];
+      if (col) col.style.width = newWidth + 'px';
+    });
+    document.addEventListener('pointerup', function () {
+      if (!dragging) return;
+      dragging = null;
+      document.querySelectorAll('.col-resizer.is-active').forEach(function (h) { h.classList.remove('is-active'); });
+      document.body.classList.remove('is-resizing-col');
+      saveColWidths();
+    });
+  })();
 
   function qtyCellHtml(key, kind, value, needed) {
     var shortage = Math.max(0, needed - value);
@@ -781,9 +909,16 @@
     if (prod.unitCount > 1) {
       mountedHeader += ' — ' + unitDisplayLabel(prod, prod.activeUnit || 1);
     }
-    listHead.innerHTML = state.groupByPart
-      ? '<tr><th>' + escapeHtml(t('th_designators')) + '</th><th>' + escapeHtml(t('th_value_footprint')) + '</th><th>' + escapeHtml(t('th_needed')) + '</th><th>' + escapeHtml(t('th_ordered')) + '</th><th>' + escapeHtml(t('th_delivered')) + '</th><th>' + escapeHtml(mountedHeader) + '</th></tr>'
-      : '<tr><th>' + escapeHtml(t('th_designator_single')) + '</th><th>' + escapeHtml(t('th_value_footprint')) + '</th><th>' + escapeHtml(t('th_part_status')) + '</th></tr>';
+    var mode = state.groupByPart ? 'grouped' : 'flat';
+    var labels = state.groupByPart
+      ? [t('th_designators'), t('th_value_footprint'), t('th_needed'), t('th_ordered'), t('th_delivered'), mountedHeader]
+      : [t('th_designator_single'), t('th_value_footprint'), t('th_part_status')];
+    var widths = colWidths[mode];
+    listCols.innerHTML = widths.map(function (w) { return '<col style="width:' + w + 'px" />'; }).join('');
+    listHead.innerHTML = '<tr>' + labels.map(function (label, i) {
+      return '<th>' + escapeHtml(label) +
+        '<span class="col-resizer" data-col-mode="' + mode + '" data-col-index="' + i + '"></span></th>';
+    }).join('') + '</tr>';
   }
 
   function renderComponentList() {

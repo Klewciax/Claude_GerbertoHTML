@@ -32,6 +32,15 @@ Das Tool ist zu 100 % in Python geschrieben — **es benötigt kein Node.js** (e
 Node.js zum Rendern der Gerber-Dateien; das wurde durch die reine Python-Bibliothek `gerbonara` ersetzt,
 siehe Abschnitt „Architektur“ weiter unten).
 
+**Anpassen der Oberfläche an den Bildschirm:** Die Schaltfläche ☀️/🌙 im Kopfbereich schaltet zwischen
+**hellem und dunklem Design** für den ganzen Bericht um. Im Assembly-Tab lässt sich die Seitenleiste
+(Eingabedaten + Bauteilliste) **an ihrer rechten Kante ziehen**, um sie breiter oder schmaler zu
+machen, und in der Bauteiltabelle selbst lässt sich **jede Spalte an ihrer rechten Kante ziehen**, um
+ihre Breite anzupassen (besonders nützlich auf einem kleineren Laptop-Bildschirm, wo die Standardmaße
+Inhalte abschneiden können). Design, Seitenleistenbreite und Spaltenbreiten sind Browsereinstellungen
+(wie die Sprache) — sie gehören nicht zu den Berichtsdaten und werden daher nicht über Export/Import
+des Status übertragen; jede Person passt sie unabhängig an ihren eigenen Bildschirm an.
+
 **Sprachversion des Berichts:** Oben rechts im erzeugten Bericht befindet sich ein Umschalter
 **PL / DE** — er ändert die Sprache der gesamten Oberfläche (Beschriftungen, Schaltflächen,
 Tabellenüberschriften, Meldungen), ohne die Datei neu zu erzeugen. So kann dieselbe `report.html`

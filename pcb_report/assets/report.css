@@ -9,12 +9,61 @@
   --gray-200: #e6e9ee;
   --gray-100: #f4f6f9;
   --white: #ffffff;
+  /* Muted text sitting directly on the header bar, which stays --navy
+     (dark) in both themes -- fixed, not overridden in dark mode, unlike
+     --gray-300 which means "border on a themed surface" everywhere else. */
+  --header-muted: #b8c4d9;
+  /* Card/panel background -- distinct from --white, which stays literal
+     white (text-on-navy/text-on-blue) even in dark mode. Equal to --white
+     in light mode, but needs its own dark-mode value below. */
+  --surface: #ffffff;
+  /* Heading/emphasis text color -- distinct from --navy, which stays the
+     brand's fixed dark header background in both themes. Defaults to the
+     same value as --navy here, but dark mode needs a light color instead
+     since it's used as *text* on --surface. */
+  --heading: var(--navy);
+
+  --warn-text: #a15c00;
+  --warn-bg: #fff3e0;
+  --warn-border: #f0c080;
+  --warn-bg-soft: #fff6e5;
+  --warn-border-soft: #ffe1a8;
+  --ok-text: #2e7d4f;
 
   --marker-pending: #d4d9e0;
   --marker-delivered-partial: #ffe6a3;
   --marker-delivered-full: #ffd166;
   --marker-mounted-partial: #a9d8c1;
   --marker-mounted-full: #4caf7d;
+}
+
+/* Dark theme -- toggled via data-theme="dark" on <html> (see the theme
+   switch in report.js). --navy (header background) and --white (literal
+   white, used as text on the always-dark navy/blue/red surfaces) are
+   deliberately left unchanged: only the "which shade means background vs.
+   card vs. border vs. text" mapping flips, not the handful of colors that
+   are already dark/light on purpose regardless of theme. The PCB board
+   render itself (gerbonara SVG) also keeps its own fixed dark substrate
+   color -- a real board looks dark either way, see report.js's board
+   background rect. */
+:root[data-theme="dark"] {
+  --blue: #4f8fef;
+  --blue-pale: #17233a;
+  --gray-900: #eef1f6;
+  --gray-700: #c3cbd6;
+  --gray-500: #8b96a6;
+  --gray-300: #343d4c;
+  --gray-200: #242b36;
+  --gray-100: #12161d;
+  --surface: #1b212b;
+  --heading: #a9c6f0;
+
+  --warn-text: #ffb75d;
+  --warn-bg: #3a2a10;
+  --warn-border: #6b4a1a;
+  --warn-bg-soft: #3a2f12;
+  --warn-border-soft: #5c431a;
+  --ok-text: #6fcf97;
 }
 
 * { box-sizing: border-box; }
@@ -28,7 +77,10 @@ body {
 }
 
 button { font-family: inherit; cursor: pointer; }
-input, select, textarea { font-family: inherit; font-size: 0.9rem; }
+/* Baseline so every form control follows the theme even where a specific
+   rule below doesn't set its own background/color (browsers otherwise
+   default form controls to an opaque white regardless of page theme). */
+input, select, textarea { font-family: inherit; font-size: 0.9rem; background: var(--surface); color: var(--gray-900); }
 
 .app { display: flex; flex-direction: column; height: 100vh; }
 
@@ -53,8 +105,8 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 }
 
 .app__brand h1 { margin: 0; font-size: 1.15rem; font-weight: 700; }
-.app__brand p { margin: 0; font-size: 0.75rem; color: var(--gray-300); }
-.app__meta { font-size: 0.7rem; color: var(--gray-300); text-align: right; }
+.app__brand p { margin: 0; font-size: 0.75rem; color: var(--header-muted); }
+.app__meta { font-size: 0.7rem; color: var(--header-muted); text-align: right; }
 
 .app__sync { display: flex; align-items: center; gap: 6px; }
 .app__sync button {
@@ -65,17 +117,17 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 
 .tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.08); padding: 4px; border-radius: 8px; }
 .tabs__button {
-  border: none; background: transparent; color: var(--gray-300);
+  border: none; background: transparent; color: var(--header-muted);
   padding: 8px 20px; border-radius: 6px; font-weight: 600; font-size: 0.9rem;
 }
-.tabs__button.is-active { background: var(--white); color: var(--navy); }
+.tabs__button.is-active { background: var(--surface); color: var(--heading); }
 
-.lang-switch { display: flex; gap: 4px; background: rgba(255,255,255,0.08); padding: 4px; border-radius: 8px; }
-.lang-switch button {
-  border: none; background: transparent; color: var(--gray-300);
+.lang-switch, .theme-switch { display: flex; gap: 4px; background: rgba(255,255,255,0.08); padding: 4px; border-radius: 8px; }
+.lang-switch button, .theme-switch button {
+  border: none; background: transparent; color: var(--header-muted);
   padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 0.76rem;
 }
-.lang-switch button.is-active { background: var(--white); color: var(--navy); }
+.lang-switch button.is-active, .theme-switch button.is-active { background: var(--surface); color: var(--heading); }
 
 .app__main { flex: 1; min-height: 0; }
 .tab-panel { display: none; height: 100%; }
@@ -86,27 +138,41 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .assembly-tab { display: flex; width: 100%; min-height: 0; flex: 1; }
 
 .assembly-tab__sidebar {
-  width: 560px; min-width: 420px; max-width: 640px;
-  display: flex; flex-direction: column; min-height: 0;
-  background: var(--white); border-right: 1px solid var(--gray-200);
+  width: 560px; min-width: 320px;
+  display: flex; flex-direction: column; min-height: 0; flex-shrink: 0;
+  background: var(--surface); border-right: 1px solid var(--gray-200);
   overflow-y: auto;
 }
+
+/* Drag handle between the sidebar and the board viewer -- see the resize
+   wiring in report.js. A flex sibling rather than an absolutely-positioned
+   overlay, so it doesn't need to track the sidebar's height/edge itself. */
+.assembly-tab__resize-handle {
+  width: 6px; flex: 0 0 auto; cursor: col-resize; position: relative; z-index: 4;
+}
+.assembly-tab__resize-handle::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px; background: var(--gray-300);
+}
+.assembly-tab__resize-handle:hover::after, body.is-resizing-sidebar .assembly-tab__resize-handle::after {
+  background: var(--blue);
+}
+body.is-resizing-sidebar, body.is-resizing-col { cursor: col-resize; user-select: none; }
 
 .assembly-tab__summary {
   display: flex; justify-content: space-between; gap: 8px;
   padding: 12px 16px; margin: 16px; background: var(--blue-pale);
-  border-radius: 8px; font-size: 0.78rem; color: var(--navy);
+  border-radius: 8px; font-size: 0.78rem; color: var(--heading);
 }
 
 .assembly-tab__viewer { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--gray-200); }
 
 .assembly-tab__side-switch {
   display: flex; align-items: center; gap: 8px; padding: 10px 16px;
-  background: var(--white); border-bottom: 1px solid var(--gray-200);
+  background: var(--surface); border-bottom: 1px solid var(--gray-200);
 }
 .assembly-tab__side-switch button {
   padding: 6px 16px; border-radius: 6px; border: 1px solid var(--gray-300);
-  background: var(--white); color: var(--gray-700); font-size: 0.82rem; font-weight: 600;
+  background: var(--surface); color: var(--gray-700); font-size: 0.82rem; font-weight: 600;
 }
 .assembly-tab__side-switch button.is-active { background: var(--blue); border-color: var(--blue); color: var(--white); }
 /* Marks which side a selected component actually sits on -- independent of
@@ -117,14 +183,14 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 
 .layer-panel {
   position: absolute; top: 52px; right: 12px; bottom: 12px; z-index: 3; width: 320px;
-  background: var(--white); border: 1px solid var(--gray-300); border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--gray-300); border-radius: 8px;
   box-shadow: 0 4px 16px rgba(11,37,69,0.2); display: flex; flex-direction: column; overflow: hidden;
 }
 .layer-panel__header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 8px 12px; border-bottom: 1px solid var(--gray-200); flex-shrink: 0;
 }
-.layer-panel__header h3 { margin: 0; font-size: 0.85rem; color: var(--navy); }
+.layer-panel__header h3 { margin: 0; font-size: 0.85rem; color: var(--heading); }
 .layer-panel__header button { border: none; background: transparent; color: var(--gray-500); font-size: 0.9rem; }
 .layer-panel__list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
 .layer-panel__empty { margin: 8px; font-size: 0.78rem; color: var(--gray-500); }
@@ -138,26 +204,26 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .layer-panel__meta { font-size: 0.68rem; color: var(--gray-500); }
 
 .assembly-tab__warning {
-  margin-left: auto; font-size: 0.78rem; color: #a15c00; background: #fff3e0;
+  margin-left: auto; font-size: 0.78rem; color: var(--warn-text); background: var(--warn-bg);
   padding: 4px 10px; border-radius: 6px; cursor: help;
 }
 
 .upload-panel { padding: 10px 16px; border-bottom: 1px solid var(--gray-200); }
 .upload-panel__header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
-.upload-panel__header h2 { font-size: 0.9rem; margin: 0; color: var(--navy); }
+.upload-panel__header h2 { font-size: 0.9rem; margin: 0; color: var(--heading); }
 .upload-panel__toggle { border: none; background: transparent; color: var(--gray-500); font-size: 0.8rem; padding: 2px 6px; }
 .upload-panel__body { margin-top: 8px; }
 .upload-panel p { font-size: 0.72rem; color: var(--gray-500); margin: 0; }
-.upload-panel ul { margin: 8px 0 0; padding-left: 16px; font-size: 0.72rem; color: #7a4b00; }
+.upload-panel ul { margin: 8px 0 0; padding-left: 16px; font-size: 0.72rem; color: var(--warn-text); }
 
 .variant-picker {
   display: flex; flex-direction: column; gap: 4px;
   padding: 12px 16px; border-bottom: 1px solid var(--gray-200); background: var(--blue-pale);
 }
-.variant-picker label { font-size: 0.75rem; font-weight: 600; color: var(--navy); }
+.variant-picker label { font-size: 0.75rem; font-weight: 600; color: var(--heading); }
 .variant-picker select {
   padding: 6px 8px; border: 1px solid var(--gray-300); border-radius: 6px;
-  background: var(--white); color: var(--gray-900); font-size: 0.85rem; font-weight: 600;
+  background: var(--surface); color: var(--gray-900); font-size: 0.85rem; font-weight: 600;
 }
 
 .production-panel {
@@ -168,7 +234,7 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .production-panel__field label { font-size: 0.72rem; font-weight: 600; color: var(--gray-700); }
 .production-panel__field input, .production-panel__field select {
   padding: 6px 8px; border: 1px solid var(--gray-300); border-radius: 6px;
-  background: var(--white); color: var(--gray-900); font-size: 0.82rem;
+  background: var(--surface); color: var(--gray-900); font-size: 0.82rem;
 }
 
 .component-list__controls { padding: 0 16px 10px; }
@@ -179,27 +245,38 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 
 .component-list { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 16px; }
 .component-list--empty { padding: 24px 16px; color: var(--gray-500); font-size: 0.85rem; }
-.component-list table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 0.78rem; }
+/* table-layout: fixed + an explicit <colgroup> (built in report.js) is what
+   makes per-column widths -- and dragging them -- actually stick; plain
+   auto-layout ignores <col> widths and just resizes to content instead. */
+.component-list table { table-layout: fixed; border-collapse: collapse; font-size: 0.78rem; }
 .component-list thead th {
   position: sticky; top: 0; background: var(--gray-100); text-align: left;
   padding: 6px 8px; color: var(--gray-500); font-weight: 600; border-bottom: 1px solid var(--gray-200);
+  overflow: hidden;
 }
+/* Per-column drag handle -- sits on the th's right edge; position:sticky
+   above still establishes a containing block for this absolute child. */
+/* Kept fully inside the th's own box (not straddling its edge) -- the th
+   has overflow: hidden, which would otherwise clip half of this handle and
+   make the clickable area unreliable right at the column border. */
+.col-resizer { position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 2; }
+.col-resizer:hover, body.is-resizing-col .col-resizer.is-active { background: var(--blue); opacity: 0.5; }
 .component-list tbody tr { border-bottom: 1px solid var(--gray-100); cursor: pointer; }
 .component-list tbody tr:hover { background: var(--gray-100); }
 .component-list tbody tr.is-selected { background: var(--blue-pale); }
-.component-list td { padding: 6px; vertical-align: top; }
+.component-list td { padding: 6px; vertical-align: top; overflow: hidden; }
 .component-list__designators { display: flex; flex-wrap: wrap; gap: 4px; }
 .designator-chip {
-  font-weight: 700; color: var(--navy); background: var(--gray-100);
+  font-weight: 700; color: var(--heading); background: var(--gray-100);
   border: 1px solid var(--gray-200); border-radius: 4px; padding: 1px 6px; font-size: 0.76rem;
   cursor: pointer;
 }
 .designator-chip:hover { border-color: var(--blue); }
-.designator-chip--unplaced { color: #a15c00; background: #fff3e0; border-color: #f0c080; }
+.designator-chip--unplaced { color: var(--warn-text); background: var(--warn-bg); border-color: var(--warn-border); }
 .designator-chip.is-mapping { background: var(--blue); border-color: var(--blue); color: var(--white); }
 .component-list__mpn { font-size: 0.68rem; color: var(--gray-500); }
 .component-list__footprint { font-size: 0.7rem; color: var(--gray-500); }
-.component-list__unplaced { margin-top: 4px; font-size: 0.68rem; color: #a15c00; }
+.component-list__unplaced { margin-top: 4px; font-size: 0.68rem; color: var(--warn-text); }
 .component-list__flat-status { font-size: 0.68rem; color: var(--gray-500); margin-top: 2px; }
 
 .qty-cell { display: flex; flex-direction: column; gap: 3px; min-width: 72px; }
@@ -212,34 +289,34 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
   border: 1px solid var(--gray-300); background: var(--gray-100); color: var(--gray-700);
   border-radius: 4px; padding: 2px 4px; font-size: 0.62rem; white-space: nowrap;
 }
-.qty-cell__shortage { font-size: 0.65rem; color: #a15c00; }
-.qty-cell__ok { font-size: 0.65rem; color: #2e7d4f; }
+.qty-cell__shortage { font-size: 0.65rem; color: var(--warn-text); }
+.qty-cell__ok { font-size: 0.65rem; color: var(--ok-text); }
 
 .shortage-panel {
-  border-top: 1px solid var(--gray-200); background: var(--white);
+  border-top: 1px solid var(--gray-200); background: var(--surface);
   padding: 12px 20px; max-height: 200px; overflow-y: auto; flex-shrink: 0;
 }
-.shortage-panel h2 { margin: 0 0 8px; font-size: 0.9rem; color: var(--navy); }
+.shortage-panel h2 { margin: 0 0 8px; font-size: 0.9rem; color: var(--heading); }
 .shortage-panel__empty { margin: 0; font-size: 0.8rem; color: var(--gray-500); }
 .shortage-panel__list { display: flex; flex-direction: column; gap: 6px; }
 .shortage-panel__item {
   display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline;
-  font-size: 0.78rem; padding: 6px 10px; background: #fff6e5; border: 1px solid #ffe1a8;
+  font-size: 0.78rem; padding: 6px 10px; background: var(--warn-bg-soft); border: 1px solid var(--warn-border-soft);
   border-radius: 6px;
 }
-.shortage-panel__item strong { color: var(--navy); }
-.shortage-panel__item .shortage-panel__missing { color: #a15c00; font-weight: 600; }
+.shortage-panel__item strong { color: var(--heading); }
+.shortage-panel__item .shortage-panel__missing { color: var(--warn-text); font-weight: 600; }
 
 .pcb-viewer { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 .pcb-viewer__toolbar {
   position: absolute; top: 12px; left: 12px; z-index: 2;
   display: flex; align-items: center; gap: 6px;
-  background: rgba(255,255,255,0.92); padding: 6px; border-radius: 8px;
+  background: var(--surface); padding: 6px; border-radius: 8px;
   box-shadow: 0 2px 6px rgba(11,37,69,0.15);
 }
 .pcb-viewer__toolbar button {
   padding: 6px 10px; border-radius: 6px; border: 1px solid var(--gray-300);
-  background: var(--white); font-size: 0.8rem; font-weight: 600; color: var(--navy);
+  background: var(--surface); font-size: 0.8rem; font-weight: 600; color: var(--heading);
 }
 .pcb-viewer__mapping-hint { margin-left: 6px; font-size: 0.75rem; color: var(--blue); }
 .pcb-viewer__empty {
@@ -269,10 +346,10 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 
 /* Traceability */
 .traceability-tab { display: flex; width: 100%; min-height: 0; }
-.traceability-tab__sidebar { width: 360px; min-width: 300px; background: var(--white); border-right: 1px solid var(--gray-200); overflow-y: auto; }
+.traceability-tab__sidebar { width: 360px; min-width: 300px; background: var(--surface); border-right: 1px solid var(--gray-200); overflow-y: auto; }
 .traceability-tab__samples { flex: 1; min-width: 0; overflow-y: auto; padding: 20px 24px; }
 .traceability-tab__add-sample { margin-bottom: 20px; }
-.traceability-tab__add-sample h2 { margin: 0 0 10px; color: var(--navy); font-size: 1rem; }
+.traceability-tab__add-sample h2 { margin: 0 0 10px; color: var(--heading); font-size: 1rem; }
 .traceability-tab__add-sample form, .rework-pool__form { display: flex; gap: 8px; }
 .traceability-tab__add-sample input, .rework-pool__form input {
   flex: 1; padding: 8px 10px; border: 1px solid var(--gray-300); border-radius: 6px;
@@ -285,7 +362,7 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .traceability-tab__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 
 .rework-pool { padding: 16px; }
-.rework-pool h2 { font-size: 0.95rem; margin: 0 0 8px; color: var(--navy); }
+.rework-pool h2 { font-size: 0.95rem; margin: 0 0 8px; color: var(--heading); }
 .rework-pool__hint { font-size: 0.72rem; color: var(--gray-500); margin: 0 0 12px; }
 .rework-pool__form { margin-bottom: 14px; }
 .rework-pool__list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -308,7 +385,7 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .rework-pool__photo-add:hover { border-color: var(--blue); color: var(--blue); }
 
 .software-pool { padding: 16px; border-top: 1px solid var(--gray-200); }
-.software-pool h2 { font-size: 0.95rem; margin: 0 0 8px; color: var(--navy); }
+.software-pool h2 { font-size: 0.95rem; margin: 0 0 8px; color: var(--heading); }
 .software-pool__hint { font-size: 0.72rem; color: var(--gray-500); margin: 0 0 12px; }
 .software-pool__form { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .software-pool__form input { padding: 8px 10px; border: 1px solid var(--gray-300); border-radius: 6px; }
@@ -326,11 +403,11 @@ input, select, textarea { font-family: inherit; font-size: 0.9rem; }
 .software-pool__empty { color: var(--gray-500); font-size: 0.8rem; }
 
 .sample-card {
-  background: var(--white); border: 1px solid var(--gray-200); border-radius: 10px; padding: 14px;
+  background: var(--surface); border: 1px solid var(--gray-200); border-radius: 10px; padding: 14px;
   display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(11,37,69,0.06);
 }
 .sample-card__header { display: flex; align-items: center; justify-content: space-between; }
-.sample-card__header h3 { margin: 0; font-size: 0.95rem; color: var(--navy); }
+.sample-card__header h3 { margin: 0; font-size: 0.95rem; color: var(--heading); }
 .sample-card__header button { border: none; background: transparent; color: var(--gray-500); }
 .sample-card__reworks { display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; padding-right: 4px; }
 .sample-card__rework-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--gray-700); }

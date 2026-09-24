@@ -29,6 +29,15 @@ Narzędzie jest w 100% Pythonem — **nie wymaga Node.js** (wcześniejsza wersja
 renderowania Gerberów; zostało to zastąpione czysto-pythonową biblioteką `gerbonara`, patrz sekcja
 architektura niżej).
 
+**Dostosowanie interfejsu do ekranu:** przycisk ☀️/🌙 w nagłówku przełącza **jasny/ciemny motyw**
+całego raportu. Na zakładce Assembly panel boczny (dane wejściowe + lista komponentów) da się
+**przeciągnąć za prawą krawędź**, żeby zrobić go szerszym lub węższym, a w samej tabeli komponentów
+każdą **kolumnę można przeciągnąć za jej prawą krawędź**, żeby dostosować jej szerokość (przydatne
+zwłaszcza na mniejszym ekranie laptopa, gdzie domyślne proporcje potrafią obcinać treść). Motyw,
+szerokość panelu i szerokości kolumn to ustawienia przeglądarki (jak język) — nie są częścią danych
+raportu, więc nie podróżują z eksportem/importem stanu, każda osoba dostosowuje je do swojego ekranu
+niezależnie.
+
 **Wersja językowa raportu:** w prawym górnym rogu wygenerowanego raportu jest przełącznik **PL / DE** —
 zmienia język całego interfejsu (etykiety, przyciski, nagłówki tabel, komunikaty) bez ponownego
 generowania pliku, więc jeden `report.html` można wysłać zarówno polsko-, jak i niemieckojęzycznemu

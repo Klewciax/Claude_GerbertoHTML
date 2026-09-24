@@ -93,6 +93,10 @@ def build_report_html(
       <button type="button" data-lang="pl" class="is-active">PL</button>
       <button type="button" data-lang="de">DE</button>
     </div>
+    <div class="theme-switch" id="themeSwitch">
+      <button type="button" data-theme="light" class="is-active" data-i18n-title="theme_light_title" title="Jasny motyw">☀️</button>
+      <button type="button" data-theme="dark" data-i18n-title="theme_dark_title" title="Ciemny motyw">🌙</button>
+    </div>
     <div class="app__sync">
       <button type="button" id="exportStateBtn" data-i18n-title="export_btn_title" title="Zapisz plik ze stanem (do przekazania innej osobie/komputerowi)"><span data-i18n="export_btn">⭳ Eksportuj stan</span></button>
       <button type="button" id="importStateBtn" data-i18n-title="import_btn_title" title="Wczytaj wcześniej wyeksportowany plik stanu"><span data-i18n="import_btn">⭱ Importuj stan</span></button>
@@ -153,11 +157,14 @@ def build_report_html(
           <div class="component-list">
             <div class="component-list--empty" id="componentListEmpty" data-i18n="no_components" style="display:none;">Brak komponentów w BOM.</div>
             <table id="componentListTable">
+              <colgroup id="componentListCols"></colgroup>
               <thead id="componentListHead"></thead>
               <tbody id="componentListBody"></tbody>
             </table>
           </div>
         </aside>
+
+        <div class="assembly-tab__resize-handle" id="assemblySidebarResizer" title="Przeciągnij, aby zmienić szerokość panelu"></div>
 
         <section class="assembly-tab__viewer">
           <div class="assembly-tab__side-switch">
