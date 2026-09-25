@@ -315,7 +315,7 @@ def _parse_file(path: str, warnings: list[str]) -> Optional[_ParsedFile]:
     try:
         parsed, parse_warnings = _open_gerber_or_excellon(path)
     except Exception as exc:
-        warnings.append(f"Nie udało się odczytać pliku {name}: {exc}")
+        warnings.append(f"Failed to read file {name}: {exc}")
         return None
 
     with _py_warnings.catch_warnings(record=True) as caught:
@@ -328,7 +328,7 @@ def _parse_file(path: str, warnings: list[str]) -> Optional[_ParsedFile]:
                 return None
             svg = str(parsed.to_svg())
         except Exception as exc:
-            warnings.append(f"Nie udało się wyrenderować pliku {name}: {exc}")
+            warnings.append(f"Failed to render file {name}: {exc}")
             return None
         parse_warnings = parse_warnings + list(caught)
 
@@ -555,14 +555,14 @@ def render_gerber_files(
     placements: Optional[dict[str, Placement]] = None,
 ) -> GerberRenderResult:
     if not paths:
-        return GerberRenderResult(warnings=["Nie wskazano żadnych plików Gerber."])
+        return GerberRenderResult(warnings=["No Gerber files given."])
 
     if _GERBONARA_IMPORT_ERROR is not None:
         return GerberRenderResult(
             warnings=[
-                "Brak biblioteki 'gerbonara' — renderowanie plików Gerber jest niedostępne. "
-                "Zainstaluj ją poleceniem 'pip install -e .' (z katalogu repozytorium) lub "
-                f"'pip install gerbonara'. Szczegóły: {_GERBONARA_IMPORT_ERROR}"
+                "Missing the 'gerbonara' library — rendering Gerber files is unavailable. "
+                "Install it with 'pip install -e .' (from the repository directory) or "
+                f"'pip install gerbonara'. Details: {_GERBONARA_IMPORT_ERROR}"
             ]
         )
 
@@ -574,7 +574,7 @@ def render_gerber_files(
             parsed_files.append(result)
 
     if not parsed_files:
-        warnings.append("Żaden z wybranych plików nie został rozpoznany jako plik Gerber/Excellon z geometrią.")
+        warnings.append("None of the selected files were recognized as a Gerber/Excellon file with geometry.")
         return GerberRenderResult(warnings=warnings)
 
     # Which files anchor the auto-fit view frame, so a handful of
@@ -587,25 +587,25 @@ def render_gerber_files(
     unknown = [f.path for f in parsed_files if f.layer_type == "unknown"]
     if unknown:
         warnings.append(
-            "Nie rozpoznano typu warstwy dla: "
+            "Couldn't recognize the layer type for: "
             + ", ".join(Path(p).name for p in unknown)
-            + " — plik(i) wyrenderowano w neutralnym kolorze na obu stronach płytki"
-            + ("." if all_layers else ", domyślnie ukryte (patrz panel 'Warstwy') — to najczęściej dokumentacja/notatki fabrykanta, nie sama płytka.")
+            + " — file(s) rendered in a neutral color on both sides of the board"
+            + ("." if all_layers else ", hidden by default (see the 'Layers' panel) — this is most often fab documentation/notes, not the board itself.")
         )
 
     if not all_layers:
         _HIDDEN_TYPE_LABELS = {
-            "copper": "miedź zewnętrzna",
-            "mask": "maska lutownicza",
-            "inner_copper": "wewnętrzna miedź",
-            "mechanical": "inne warstwy mechaniczne Altium",
+            "copper": "outer copper",
+            "mask": "solder mask",
+            "inner_copper": "inner copper",
+            "mechanical": "other Altium mechanical layers",
         }
         hidden_present = [t for t in ("copper", "mask", "inner_copper", "mechanical") if any(f.layer_type == t for f in parsed_files)]
         if hidden_present:
             warnings.append(
-                "Domyślnie ukryto (niepotrzebne do samego montażu): "
+                "Hidden by default (not needed for assembly itself): "
                 + ", ".join(_HIDDEN_TYPE_LABELS[t] for t in hidden_present)
-                + " — można je dowolnie włączyć w panelu 'Warstwy' raportu albo użyć --all-layers."
+                + " — can be freely enabled in the report's 'Layers' panel, or use --all-layers."
             )
 
     bbox_source = bbox_anchor_files or parsed_files
@@ -619,7 +619,7 @@ def render_gerber_files(
         try:
             component_shapes = match_component_shapes(parsed_files, placements)
         except Exception as exc:
-            warnings.append(f"Nie udało się dopasować realnych obrysów komponentów, użyto znaczników zastępczych: {exc}")
+            warnings.append(f"Failed to match real component outlines, using placeholder markers instead: {exc}")
 
     return GerberRenderResult(
         layers=layers,

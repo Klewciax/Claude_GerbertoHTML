@@ -41,18 +41,15 @@ szerokość panelu, szerokości kolumn oraz wysokość/zwinięcie panelu braków
 (jak język) — nie są częścią danych raportu, więc nie podróżują z eksportem/importem stanu, każda
 osoba dostosowuje je do swojego ekranu niezależnie.
 
-**Wersja językowa raportu:** narzędzie zapisuje **od razu dwa pliki HTML** — domyślny (`report.html`
-albo ścieżka z `-o`) otwiera się po polsku, a obok niego drugi z dopiskiem `.de` przed rozszerzeniem
-(np. `report.de.html`) otwiera się od razu po niemiecku — nie trzeba już samodzielnie klikać
-przełącznika DE przy każdym otwarciu, wystarczy wysłać niemieckojęzycznemu odbiorcy ten drugi plik.
-Oba pliki mają identyczną zawartość/dane i to samo ID raportu (eksport/import stanu działa między
-nimi bez ostrzeżenia o "innym raporcie") — różni je tylko język pokazywany przy pierwszym otwarciu.
-W obu plikach nadal działa przełącznik **PL / DE** w prawym górnym rogu, który zmienia język całego
-interfejsu (etykiety, przyciski, nagłówki tabel, komunikaty) bez ponownego generowania pliku; wybór
-zapamiętuje się w przeglądarce i od tego momentu wygrywa z domyślnym językiem danego pliku. Ostrzeżenia
-z parsowania plików wejściowych (widoczne w panelu "Dane wejściowe") oraz komunikaty konsoli narzędzia
-pozostają po polsku niezależnie od tego przełącznika — dotyczą osoby uruchamiającej narzędzie, nie
-odbiorcy raportu.
+**Wersja językowa raportu:** w prawym górnym rogu wygenerowanego raportu jest przełącznik **PL / DE** —
+zmienia język całego interfejsu (etykiety, przyciski, nagłówki tabel, komunikaty) bez ponownego
+generowania pliku, więc jeden `report.html` można wysłać zarówno polsko-, jak i niemieckojęzycznemu
+odbiorcy. Wybór zapamiętuje się w przeglądarce (niezależnie od `localStorage` konkretnego raportu).
+Ostrzeżenia z parsowania plików wejściowych (widoczne w panelu "Dane wejściowe" i w konsoli podczas
+generowania raportu) są po angielsku niezależnie od tego przełącznika — **konsola/terminal narzędzia
+(cały tekst wypisywany podczas uruchamiania `python -m pcb_report`, w tym `--help`) jest celowo po
+angielsku** (międzynarodowo), niezależnie od języka wybranego w samym raporcie, żeby osoba
+uruchamiająca narzędzie nie musiała znać polskiego.
 
 ## Instalacja (3 kroki)
 
@@ -165,7 +162,7 @@ Następnie otwórz `report.html` w przeglądarce.
 | `--bom PLIK` | nie | Plik BOM w formacie `.csv`, `.xml` lub `.xlsx` (Excel). Pominięcie = auto-wykrywanie w `KATALOG`. |
 | `--pnp PLIK [PLIK ...]` | nie | Plik(i) pick-and-place `.csv`/`.txt` — więcej niż jeden, gdy Top/Bottom są osobnymi plikami (typowe w Altium). Pominięcie = auto-wykrywanie w `KATALOG`. Bez żadnego pliku wszystkie komponenty trzeba ustawić ręcznie w raporcie. |
 | `--unit {mm,inch}` | nie | Domyślne jednostki współrzędnych w pliku pick-and-place, używane tylko gdy nagłówek kolumny sam nie mówi jednostki (np. samo `X`/`Y` zamiast `Center-X(mm)`) — patrz niżej. |
-| `-o, --output PLIK` | nie | Ścieżka wyjściowa dla wersji PL (domyślnie `<KATALOG>/report.html`) — obok zawsze powstaje też wersja DE pod tą samą nazwą z dopiskiem `.de` (np. `report.de.html`), patrz sekcja "Wersja językowa raportu" wyżej. |
+| `-o, --output PLIK` | nie | Ścieżka wyjściowa (domyślnie `<KATALOG>/report.html`). |
 | `--report-id ID` | nie | Wymuszony klucz `localStorage` (domyślnie wyliczany automatycznie z nazw plików Gerber + zestawu oznaczeń — pozwala to na ponowne wygenerowanie raportu dla tego samego projektu bez utraty zaznaczonych checkboxów). |
 | `--all-layers` | nie | Zaznacz domyślnie wszystkie warstwy w panelu "Warstwy" raportu (w tym miedź, maskę, miedź wewnętrzną, inne mechaniczne), zamiast tylko potrzebnych do montażu, i rozszerz o nie też dobór plików do auto-kadrowania widoku płytki (patrz sekcja "Format plików wejściowych"). Każdą warstwę można i tak dowolnie przełączyć bezpośrednio w raporcie. |
 | `--non-interactive` | nie | Nie pytaj w terminalu o przeznaczenie nierozpoznanych plików (patrz "Jak działa auto-wykrywanie") — po prostu je pomiń, jak w wersjach bez tej funkcji. |

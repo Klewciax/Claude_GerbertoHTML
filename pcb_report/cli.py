@@ -1,10 +1,10 @@
 """Command-line entry point.
 
-    python -m pcb_report [KATALOG_PROJEKTU] [--gerber f1.gbr f2.gbr ...] [--bom bom.csv] [--pnp pnp.csv ...] [-o report.html]
+    python -m pcb_report [PROJECT_DIR] [--gerber f1.gbr f2.gbr ...] [--bom bom.csv] [--pnp pnp.csv ...] [-o report.html]
 
-Gerber/BOM/pick-and-place są auto-wykrywane w KATALOGU_PROJEKTU (domyślnie
-bieżący katalog) kiedy odpowiedni argument nie jest podany jawnie — patrz
-discovery.py.
+Gerber/BOM/pick-and-place files are auto-detected in PROJECT_DIR (defaults to
+the current directory) when the corresponding argument isn't given explicitly
+-- see discovery.py.
 """
 
 from __future__ import annotations
@@ -27,45 +27,37 @@ from .report import build_report_html
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pcb_report",
-        description="Generuje statyczny, interaktywny raport HTML (Assembly + Traceability) z plików Gerber, BOM i pick-and-place.",
+        description="Generates a static, interactive HTML report (Assembly + Traceability) from Gerber, BOM and pick-and-place files.",
     )
     parser.add_argument(
         "project",
         nargs="?",
         default=".",
-        metavar="KATALOG",
-        help="Katalog projektu do przeszukania (domyślnie bieżący katalog). Gerber/BOM/pick-and-place, "
-        "które nie zostały podane jawnie poniżej, są w nim auto-wykrywane.",
+        metavar="DIR",
+        help="Project directory to search (defaults to the current directory). Gerber/BOM/pick-and-place "
+        "files not given explicitly below are auto-detected in it.",
     )
-    parser.add_argument("--gerber", nargs="+", metavar="PLIK", default=None, help="Pliki Gerber/Excellon (RS-274X). Pominięcie = auto-wykrywanie w KATALOGU.")
-    parser.add_argument("--bom", metavar="PLIK", default=None, help="Plik BOM (.csv, .xml lub .xlsx). Pominięcie = auto-wykrywanie w KATALOGU.")
-    parser.add_argument("--pnp", nargs="+", metavar="PLIK", default=None, help="Plik(i) pick-and-place (.csv) — więcej niż jeden dla oddzielnych raportów Top/Bottom (zostaną połączone). Pominięcie = auto-wykrywanie w KATALOGU (obejmuje też wykrywanie wariantów montażu, patrz README).")
-    parser.add_argument("--unit", choices=["mm", "inch"], default="mm", help="Jednostki współrzędnych w pliku pick-and-place (domyślnie mm).")
+    parser.add_argument("--gerber", nargs="+", metavar="FILE", default=None, help="Gerber/Excellon files (RS-274X). Omit to auto-detect in DIR.")
+    parser.add_argument("--bom", metavar="FILE", default=None, help="BOM file (.csv, .xml or .xlsx). Omit to auto-detect in DIR.")
+    parser.add_argument("--pnp", nargs="+", metavar="FILE", default=None, help="Pick-and-place file(s) (.csv) — more than one for separate Top/Bottom reports (will be merged). Omit to auto-detect in DIR (also covers assembly-variant detection, see README).")
+    parser.add_argument("--unit", choices=["mm", "inch"], default="mm", help="Coordinate units in the pick-and-place file (default mm).")
     parser.add_argument(
         "--all-layers",
         action="store_true",
-        help="Domyślnie w panelu 'Warstwy' raportu zaznaczone są tylko warstwy potrzebne do montażu "
-        "(obrys, silkscreen, pasta, courtyard, wiertła) — maska, miedź (zewnętrzna i wewnętrzna) oraz "
-        "inne warstwy mechaniczne/nierozpoznane są wczytane, ale odznaczone. Ta flaga zaznacza "
-        "wszystkie od razu i rozszerza o nie też dobór plików branych pod uwagę przy automatycznym "
-        "dopasowaniu kadru/przybliżenia widoku płytki. Każdą warstwę można i tak dowolnie włączyć/"
-        "wyłączyć bezpośrednio w raporcie, bez tej flagi.",
+        help="By default, only the layers needed for assembly (outline, silkscreen, paste, courtyard, "
+        "drill holes) are checked in the report's 'Layers' panel — mask, copper (outer and inner) and "
+        "other mechanical/unrecognized layers are loaded but left unchecked. This flag checks all of "
+        "them right away, and also widens the set of files considered when auto-fitting the board view "
+        "frame. Every layer can still be freely toggled directly in the report without this flag.",
     )
-    parser.add_argument(
-        "-o", "--output", default=None, metavar="PLIK",
-        help="Ścieżka wyjściowego pliku HTML (domyślnie <KATALOG>/report.html). Narzędzie zawsze "
-        "zapisuje dwie wersje językowe: pod tą ścieżką (domyślnie PL) i drugą z dopiskiem '.de' "
-        "przed rozszerzeniem (np. report.de.html) — każda otwiera się od razu w swoim języku, "
-        "oba pliki mają identyczną zawartość/dane i wspólne ID raportu, różni je tylko domyślny "
-        "język interfejsu (przełącznik PL/DE w obu i tak działa).",
-    )
-    parser.add_argument("--report-id", default=None, help="Wymuś konkretne ID raportu (klucz localStorage) zamiast wyliczonego automatycznie.")
+    parser.add_argument("-o", "--output", default=None, metavar="FILE", help="Output HTML file path (default <DIR>/report.html).")
+    parser.add_argument("--report-id", default=None, help="Force a specific report ID (localStorage key) instead of the auto-computed one.")
     parser.add_argument(
         "--non-interactive",
         action="store_true",
-        help="Nie pytaj w terminalu o przeznaczenie plików, których auto-wykrywanie nie potrafiło "
-        "rozpoznać jako BOM/pick-and-place (domyślnie: pyta, gdy uruchomione w interaktywnym "
-        "terminalu) — takie pliki są wtedy po prostu pomijane, jak dotychczas.",
+        help="Don't ask in the terminal about files whose purpose auto-detection couldn't recognize as "
+        "BOM/pick-and-place (default: asks when run in an interactive terminal) — such files are then "
+        "simply skipped, as before.",
     )
     return parser
 
@@ -101,7 +93,7 @@ def _resolve_inputs(args: argparse.Namespace, project_dir: Path) -> Optional[Res
     if gerber_paths is None:
         gerber_paths = discovered.gerber_paths
         if gerber_paths:
-            print(f"Auto-wykryto {len(gerber_paths)} plik(ów) Gerber w '{project_dir}' (przeszukano wszystkie podfoldery): " + ", ".join(_rel(p) for p in gerber_paths))
+            print(f"Auto-detected {len(gerber_paths)} Gerber file(s) in '{project_dir}' (searched all subfolders): " + ", ".join(_rel(p) for p in gerber_paths))
 
     bom_path = args.bom
     bom_variants: dict[str, str] = {}
@@ -109,17 +101,17 @@ def _resolve_inputs(args: argparse.Namespace, project_dir: Path) -> Optional[Res
     if bom_path is None:
         bom_path = discovered.bom_path
         if bom_path:
-            print(f"Auto-wykryto plik BOM: {_rel(bom_path)}")
+            print(f"Auto-detected BOM file: {_rel(bom_path)}")
         elif discovered.bom_variants:
             bom_variants = discovered.bom_variants
             pnp_variants = discovered.pnp_variants
-            print(f"Auto-wykryto {len(bom_variants)} wariantów montażu: " + ", ".join(sorted(bom_variants)))
+            print(f"Auto-detected {len(bom_variants)} assembly variant(s): " + ", ".join(sorted(bom_variants)))
 
     pnp_paths = args.pnp
     if pnp_paths is None:
         pnp_paths = [] if bom_variants else discovered.pnp_paths
         if pnp_paths:
-            print(f"Auto-wykryto plik(i) pick-and-place: " + ", ".join(_rel(p) for p in pnp_paths))
+            print(f"Auto-detected pick-and-place file(s): " + ", ".join(_rel(p) for p in pnp_paths))
 
     if need_discovery:
         for warning in discovered.warnings:
@@ -138,13 +130,13 @@ def _resolve_inputs(args: argparse.Namespace, project_dir: Path) -> Optional[Res
                 continue
             errors.append(err)
     elif not gerber_paths:
-        errors.append("Nie podano żadnych plików Gerber. Użyj --gerber.")
+        errors.append("No Gerber files given. Use --gerber.")
     elif not bom_path:
-        errors.append("Nie podano pliku BOM. Użyj --bom.")
+        errors.append("No BOM file given. Use --bom.")
 
     if errors:
         for err in errors:
-            print(f"Błąd: {err}", file=sys.stderr)
+            print(f"Error: {err}", file=sys.stderr)
         return None
 
     return ResolvedInputs(
@@ -176,29 +168,29 @@ def _pick_default_variant(names: list[str]) -> str:
 
 
 def _load_variant(name: str, bom_path: str, pnp_paths: list[str], unit: str) -> BomVariant:
-    print(f"Parsowanie BOM (wariant '{name}'): {bom_path}")
+    print(f"Parsing BOM (variant '{name}'): {bom_path}")
     components, bom_warnings = parse_bom_file(bom_path)
     for warning in bom_warnings:
         print(f"  ⚠ {warning}", file=sys.stderr)
-    print(f"  → {len(components)} pozycji BOM ({sum(len(c.designators) for c in components)} oznaczeń)")
+    print(f"  → {len(components)} BOM entries ({sum(len(c.designators) for c in components)} designators)")
 
     placements: dict[str, Placement] = {}
     if pnp_paths:
         for pnp_path in pnp_paths:
-            print(f"Parsowanie pick-and-place (wariant '{name}'): {pnp_path}")
+            print(f"Parsing pick-and-place (variant '{name}'): {pnp_path}")
             placement_list, pnp_warnings = parse_placement_file(pnp_path, unit=unit)
             for warning in pnp_warnings:
                 print(f"  ⚠ {warning}", file=sys.stderr)
             for p in placement_list:
                 placements[p.designator] = p
-        print(f"  → {len(placements)} pozycji łącznie")
+        print(f"  → {len(placements)} positions total")
 
         all_designators = {d for c in components for d in c.designators}
         missing = sorted(all_designators - set(placements.keys()))
         if missing:
-            print(f"  ⚠ Brak pozycji dla {len(missing)} oznaczeń (można ustawić ręcznie w raporcie): {', '.join(missing[:20])}" + (" ..." if len(missing) > 20 else ""), file=sys.stderr)
+            print(f"  ⚠ No position for {len(missing)} designators (can be set manually in the report): {', '.join(missing[:20])}" + (" ..." if len(missing) > 20 else ""), file=sys.stderr)
     else:
-        print(f"  Brak dopasowanego pliku pick-and-place dla wariantu '{name}' — komponenty trzeba będzie pozycjonować ręcznie w raporcie.")
+        print(f"  No matching pick-and-place file for variant '{name}' — components will need to be positioned manually in the report.")
 
     return BomVariant(name=name, components=components, placements=placements, source_bom=bom_path, source_pnp=pnp_paths)
 
@@ -207,7 +199,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_arg_parser().parse_args(argv)
     project_dir = Path(args.project)
     if not project_dir.is_dir():
-        print(f"Błąd: katalog nie istnieje: {project_dir}", file=sys.stderr)
+        print(f"Error: directory does not exist: {project_dir}", file=sys.stderr)
         return 1
 
     resolved = _resolve_inputs(args, project_dir)
@@ -222,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
         paths_to_check += [resolved.bom_path, *resolved.pnp_paths]
     for path in paths_to_check:
         if not Path(path).is_file():
-            print(f"Błąd: plik nie istnieje: {path}", file=sys.stderr)
+            print(f"Error: file does not exist: {path}", file=sys.stderr)
             return 1
 
     variants: dict[str, BomVariant] = {}
@@ -243,44 +235,26 @@ def main(argv: list[str] | None = None) -> int:
     for variant in variants.values():
         merged_placements.update(variant.placements)
 
-    print(f"Renderowanie {len(resolved.gerber_paths)} plik(ów) Gerber...")
+    print(f"Rendering {len(resolved.gerber_paths)} Gerber file(s)...")
     gerber_result: GerberRenderResult = render_gerber_files(
         resolved.gerber_paths, all_layers=args.all_layers, placements=merged_placements
     )
     for warning in gerber_result.warnings:
         print(f"  ⚠ {warning}", file=sys.stderr)
     if gerber_result.component_shapes:
-        print(f"  → dopasowano realny obrys silkscreen/courtyard dla {len(gerber_result.component_shapes)} komponentów")
+        print(f"  → matched real silkscreen/courtyard outlines for {len(gerber_result.component_shapes)} components")
+
+    html = build_report_html(
+        gerber_paths=resolved.gerber_paths,
+        gerber_result=gerber_result,
+        variants=variants,
+        default_variant=default_variant,
+        report_id=args.report_id,
+    )
 
     output_path = Path(args.output) if args.output else project_dir / "report.html"
-
-    # Two files, one per UI language (PL default + a DE-default copy) --
-    # each opens directly in that language instead of everyone having to
-    # find and click the DE toggle by hand. Cheap: render_gerber_files()
-    # already did the expensive work above, this just re-serializes the
-    # same data with a different starting language.
-    html_pl = build_report_html(
-        gerber_paths=resolved.gerber_paths,
-        gerber_result=gerber_result,
-        variants=variants,
-        default_variant=default_variant,
-        report_id=args.report_id,
-        default_lang="pl",
-    )
-    output_path.write_text(html_pl, encoding="utf-8")
-    print(f"\nGotowe (PL): {output_path.resolve()}")
-
-    output_path_de = output_path.with_name(f"{output_path.stem}.de{output_path.suffix}")
-    html_de = build_report_html(
-        gerber_paths=resolved.gerber_paths,
-        gerber_result=gerber_result,
-        variants=variants,
-        default_variant=default_variant,
-        report_id=args.report_id,
-        default_lang="de",
-    )
-    output_path_de.write_text(html_de, encoding="utf-8")
-    print(f"Gotowe (DE): {output_path_de.resolve()}")
+    output_path.write_text(html, encoding="utf-8")
+    print(f"\nDone: {output_path.resolve()}")
     return 0
 
 

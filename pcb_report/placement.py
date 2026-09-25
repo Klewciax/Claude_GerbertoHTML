@@ -228,14 +228,14 @@ def _detect_header(lines: list[str]) -> Optional[tuple[int, list[str], tuple]]:
 def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], list[str]]:
     lines = text.splitlines()
     if not lines:
-        return [], ["Plik jest pusty."]
+        return [], ["The file is empty."]
 
     detected = _detect_header(lines)
     if detected is None:
         return [], [
-            "Nie znaleziono wiersza nagłówka z oznaczeniem (Designator) i pozycją X/Y "
-            f"(przeszukano pierwsze {_HEADER_SCAN_LINES} niepustych linii pliku). "
-            "Sprawdź format pliku pick-and-place."
+            "No header row found with a designator (Designator) and X/Y position "
+            f"(searched the first {_HEADER_SCAN_LINES} non-empty lines of the file). "
+            "Check the pick-and-place file's format."
         ]
     header_index, header_fields, mode = detected
 
@@ -301,32 +301,32 @@ def parse_placement_csv(text: str, unit: str = "mm") -> tuple[list[Placement], l
 
     if not placements:
         warnings.append(
-            "Nie znaleziono poprawnych wierszy z pozycją (Designator, Mid X/Center-X, Mid Y/Center-Y). "
-            "Sprawdź nagłówki pliku pick-and-place."
+            "No valid position rows found (Designator, Mid X/Center-X, Mid Y/Center-Y). "
+            "Check the pick-and-place file's headers."
         )
     if repaired_overflow_count:
         warnings.append(
-            f"Naprawiono automatycznie {repaired_overflow_count} wiersz(y), w których dodatkowy znak "
-            f"'{delimiter}' wewnątrz pola tekstowego (np. Comment/Value/Description) przesuwał kolejne "
-            "kolumny — wartości X/Y dla tych wierszy powinny być teraz poprawne, ale warto je zweryfikować "
-            "wzrokowo w raporcie."
+            f"Automatically repaired {repaired_overflow_count} row(s) where an extra '{delimiter}' "
+            "character inside a text field (e.g. Comment/Value/Description) shifted the following "
+            "columns — the X/Y values for those rows should now be correct, but it's worth double-"
+            "checking them visually in the report."
         )
     if skipped_bad_position_count:
         examples = "; ".join(f"{d}: X={x!r} Y={y!r}" for d, x, y in skipped_bad_position)
         hint = ""
         if field_count_mismatches:
             hint = (
-                f" Uwaga: {field_count_mismatches} z tych wierszy miało inną liczbę pól niż nagłówek "
-                f"({len(header_fields)}) — to zwykle oznacza znak '{delimiter or ''}' wewnątrz pola "
-                "tekstowego (np. opisu lub wartości komponentu) bez ujęcia go w cudzysłów, przez co "
-                "kolumny X/Y \"rozjeżdżają się\" tylko dla tych konkretnych wierszy. Jeśli w pliku nie ma "
-                "kolumny Comment/Value/Description (naprawa automatyczna działa tylko wtedy), sprawdź, czy "
-                "eksport poprawnie cytuje takie pola, albo wyeksportuj plik z innym separatorem (np. "
-                "tabulatorem), jeśli narzędzie na to pozwala."
+                f" Note: {field_count_mismatches} of these rows had a different field count than the "
+                f"header ({len(header_fields)}) — this usually means a '{delimiter or ''}' character "
+                "inside a text field (e.g. a component's description or value) without being quoted, "
+                "which throws off the X/Y columns only for those specific rows. If the file has no "
+                "Comment/Value/Description column (automatic repair only works then), check whether the "
+                "export quotes such fields correctly, or export the file with a different separator "
+                "(e.g. tab) if the tool allows it."
             )
         warnings.append(
-            f"Pominięto {skipped_bad_position_count} wiersz(y) z pozycją X/Y, której nie udało się "
-            f"odczytać jako liczbę (np. {examples}) — sprawdź separator dziesiętny/format liczb w pliku."
+            f"Skipped {skipped_bad_position_count} row(s) whose X/Y position couldn't be read as a "
+            f"number (e.g. {examples}) — check the decimal separator/number format in the file."
             + hint
         )
 
@@ -348,12 +348,12 @@ def _read_text_file(path: str) -> tuple[str, str]:
         except UnicodeDecodeError:
             continue
     with open(path, "r", encoding="latin-1", errors="replace") as f:
-        return f.read(), "latin-1 (z zastępowaniem błędnych znaków)"
+        return f.read(), "latin-1 (replacing invalid characters)"
 
 
 def parse_placement_file(path: str, unit: str = "mm") -> tuple[list[Placement], list[str]]:
     text, encoding = _read_text_file(path)
     placements, warnings = parse_placement_csv(text, unit=unit)
     if encoding != "utf-8-sig":
-        warnings = [f"Plik nie jest zapisany w UTF-8 — odczytano jako {encoding}."] + warnings
+        warnings = [f"File isn't saved as UTF-8 — read as {encoding}."] + warnings
     return placements, warnings

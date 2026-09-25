@@ -260,24 +260,24 @@ def _prompt_variant_pnp_choice(bom_label: str, candidates: list[tuple[Path, floa
         rel_label = str(Path(bom_label))
     except (TypeError, ValueError):
         rel_label = bom_label
-    print(f"\nNie udało się jednoznacznie dopasować pliku pick-and-place do wariantu BOM '{rel_label}'.", file=sys.stderr)
-    print("Kandydaci (z pokryciem oznaczeń tego wariantu):", file=sys.stderr)
+    print(f"\nCouldn't unambiguously match a pick-and-place file to BOM variant '{rel_label}'.", file=sys.stderr)
+    print("Candidates (with this variant's designator overlap):", file=sys.stderr)
     for i, (path, score) in enumerate(candidates, start=1):
         try:
             rel = str(path.relative_to(project_dir))
         except ValueError:
             rel = str(path)
-        print(f"  [{i}] {rel} (pokrycie oznaczeń: {score:.0%})", file=sys.stderr)
+        print(f"  [{i}] {rel} (designator overlap: {score:.0%})", file=sys.stderr)
     while True:
         try:
-            choice = input(f"  Który plik pasuje do wariantu '{bom_label}'? [numer / Enter = żaden]: ").strip()
+            choice = input(f"  Which file matches variant '{bom_label}'? [number / Enter = none]: ").strip()
         except (EOFError, KeyboardInterrupt):
             return None
         if choice == "":
             return None
         if choice.isdigit() and 1 <= int(choice) <= len(candidates):
             return candidates[int(choice) - 1][0]
-        print("  Nie rozpoznano odpowiedzi — wpisz numer z listy albo wciśnij Enter, by pominąć.", file=sys.stderr)
+        print("  Answer not recognized — enter a number from the list or press Enter to skip.", file=sys.stderr)
 
 
 def _resolve_unmatched_variants(
@@ -325,8 +325,8 @@ def _resolve_unmatched_variants(
             if best_score >= 0.6 and best_score > runner_up * 1.5:
                 chosen = best_path
                 result.warnings.append(
-                    f"Dopasowano plik pick-and-place do wariantu '{label}' po zawartości oznaczeń "
-                    f"(pokrycie {best_score:.0%}) — nazwa pliku sama w sobie nie była jednoznaczna."
+                    f"Matched a pick-and-place file to variant '{label}' by designator content "
+                    f"(overlap {best_score:.0%}) — the filename alone wasn't unambiguous."
                 )
             elif interactive and sys.stdin.isatty():
                 chosen = _prompt_variant_pnp_choice(label, scored, project_dir)
@@ -366,19 +366,19 @@ def _prompt_file_kind(path: Path, project_dir: Path) -> str:
         rel = str(path.relative_to(project_dir))
     except ValueError:
         rel = str(path)
-    print(f"\nNie rozpoznano automatycznie przeznaczenia pliku:\n  {rel}", file=sys.stderr)
+    print(f"\nCouldn't automatically recognize the purpose of this file:\n  {rel}", file=sys.stderr)
     while True:
         try:
-            choice = input("  Co to jest? [b] BOM   [p] Pick-and-place   [Enter] pomiń: ").strip().lower()
+            choice = input("  What is it? [b] BOM   [p] Pick-and-place   [Enter] skip: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             return "skip"
-        if choice in ("", "s", "skip", "pomin", "pomiń"):
+        if choice in ("", "s", "skip"):
             return "skip"
         if choice in ("b", "bom"):
             return "bom"
         if choice in ("p", "pnp"):
             return "pnp"
-        print("  Nie rozpoznano odpowiedzi — wpisz 'b', 'p' albo wciśnij Enter, by pominąć.", file=sys.stderr)
+        print("  Answer not recognized — enter 'b', 'p', or press Enter to skip.", file=sys.stderr)
 
 
 def discover_project_files(project_dir: Path, interactive: bool = True) -> DiscoveryResult:
@@ -482,16 +482,16 @@ def discover_project_files(project_dir: Path, interactive: bool = True) -> Disco
             content_matched = sorted(set(pairing) - set(name_matched))
             unpaired = sorted(set(result.bom_variants) - set(pairing))
             result.warnings.append(
-                f"Wykryto {len(bom_labels)} wariantów montażu ({variant_names}) — pick-and-place dopasowano "
-                f"automatycznie po nazwie dla: {', '.join(name_matched) or '(brak)'}."
-                + (f" Dopasowano po zawartości oznaczeń: {', '.join(content_matched)}." if content_matched else "")
-                + (f" Bez dopasowania (pozycjonowanie ręczne): {', '.join(unpaired)}." if unpaired else "")
-                + " Wybór wariantu montażu jest dostępny w wygenerowanym raporcie."
+                f"Detected {len(bom_labels)} assembly variant(s) ({variant_names}) — pick-and-place matched "
+                f"automatically by name for: {', '.join(name_matched) or '(none)'}."
+                + (f" Matched by designator content: {', '.join(content_matched)}." if content_matched else "")
+                + (f" No match (manual positioning): {', '.join(unpaired)}." if unpaired else "")
+                + " The assembly variant picker is available in the generated report."
             )
         else:
             result.warnings.append(
-                f"Wykryto {len(bom_labels)} wariantów montażu ({variant_names}) — wybór wariantu montażu "
-                "jest dostępny w wygenerowanym raporcie."
+                f"Detected {len(bom_labels)} assembly variant(s) ({variant_names}) — the assembly variant "
+                "picker is available in the generated report."
             )
 
     if pnp_candidates and not pnp_consumed_as_variants:
@@ -499,20 +499,20 @@ def discover_project_files(project_dir: Path, interactive: bool = True) -> Disco
         if len(pnp_candidates) > 1:
             names = ", ".join(_rel(p) for p in pnp_candidates)
             result.warnings.append(
-                f"Znaleziono kilka plików pick-and-place ({names}) — połączono je razem "
-                "(typowe dla oddzielnych raportów Top/Bottom w Altium)."
+                f"Found several pick-and-place files ({names}) — merged them together "
+                "(typical for separate Top/Bottom reports in Altium)."
             )
 
     if unresolved:
         names = ", ".join(_rel(p) for p in unresolved)
         result.warnings.append(
-            f"Nie rozpoznano przeznaczenia plików: {names} — zignorowano. "
-            "Jeśli to BOM lub pick-and-place, wskaż je jawnie przez --bom / --pnp."
+            f"Couldn't recognize the purpose of these files: {names} — ignored. "
+            "If this is a BOM or pick-and-place file, point to it explicitly via --bom / --pnp."
         )
 
     if not result.gerber_paths:
-        result.errors.append(f"Nie znaleziono żadnych plików Gerber/Excellon w '{project_dir}'.")
+        result.errors.append(f"No Gerber/Excellon files found in '{project_dir}'.")
     if result.bom_path is None and not result.bom_variants and not any("BOM" in e for e in result.errors):
-        result.errors.append(f"Nie znaleziono pliku BOM w '{project_dir}' — wskaż go przez --bom.")
+        result.errors.append(f"No BOM file found in '{project_dir}' — point to it via --bom.")
 
     return result

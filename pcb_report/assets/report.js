@@ -233,12 +233,11 @@
   };
   var LANG_STORAGE_KEY = 'pcb-report:lang';
   var LANG = (function () {
-    var fallback = I18N[DATA.defaultLang] ? DATA.defaultLang : 'pl';
     try {
       var saved = window.localStorage.getItem(LANG_STORAGE_KEY);
-      return I18N[saved] ? saved : fallback;
+      return I18N[saved] ? saved : 'pl';
     } catch (e) {
-      return fallback;
+      return 'pl';
     }
   })();
 

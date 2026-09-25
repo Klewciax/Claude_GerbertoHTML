@@ -116,7 +116,7 @@ def parse_bom_csv(text: str) -> tuple[list[BomComponent], list[str]]:
     warnings: list[str] = []
     reader = csv.DictReader(io.StringIO(text))
     if reader.fieldnames is None:
-        return [], ["Plik CSV jest pusty lub nie zawiera nagłówka."]
+        return [], ["The CSV file is empty or has no header row."]
 
     components: list[BomComponent] = []
     for row in reader:
@@ -127,8 +127,8 @@ def parse_bom_csv(text: str) -> tuple[list[BomComponent], list[str]]:
 
     if not components:
         warnings.append(
-            "Nie znaleziono kolumny z oznaczeniami (Designator/Reference/RefDes). "
-            "Sprawdź nagłówki pliku CSV."
+            "No designator column found (Designator/Reference/RefDes). "
+            "Check the CSV file's header row."
         )
 
     return components, warnings
@@ -162,7 +162,7 @@ def parse_bom_xml(text: str) -> tuple[list[BomComponent], list[str]]:
     try:
         root = ET.fromstring(text)
     except ET.ParseError as exc:
-        return [], [f"Nie udało się sparsować pliku XML: {exc}"]
+        return [], [f"Failed to parse the XML file: {exc}"]
 
     rows: list[dict[str, str]] = []
     _collect_xml_components(root, rows)
@@ -176,8 +176,8 @@ def parse_bom_xml(text: str) -> tuple[list[BomComponent], list[str]]:
     warnings: list[str] = []
     if not components:
         warnings.append(
-            "Nie znaleziono elementów z polem Designator/Reference w pliku XML. "
-            "Format XML tego eksportu BOM może nie być obsługiwany — zalecany jest format CSV."
+            "No elements with a Designator/Reference field found in the XML file. "
+            "This BOM export's XML format may not be supported — CSV is recommended instead."
         )
 
     return components, warnings
@@ -219,14 +219,14 @@ def parse_bom_xlsx(path: str) -> tuple[list[BomComponent], list[str]]:
         import openpyxl
     except ImportError:
         return [], [
-            "Brak biblioteki 'openpyxl', wymaganej do odczytu BOM w formacie Excel (.xlsx). "
-            "Zainstaluj ją poleceniem 'pip install openpyxl' albo wyeksportuj BOM do CSV."
+            "Missing the 'openpyxl' library, required to read an Excel-format BOM (.xlsx). "
+            "Install it with 'pip install openpyxl' or export the BOM to CSV instead."
         ]
 
     try:
         workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
     except Exception as exc:
-        return [], [f"Nie udało się otworzyć pliku Excel: {exc}"]
+        return [], [f"Failed to open the Excel file: {exc}"]
 
     header_info = None
     for sheet_title, row_index, header in _iter_candidate_header_rows(workbook):
@@ -236,9 +236,9 @@ def parse_bom_xlsx(path: str) -> tuple[list[BomComponent], list[str]]:
 
     if header_info is None:
         return [], [
-            f"Nie znaleziono kolumny z oznaczeniami (Designator/Reference/RefDes) w żadnym z "
-            f"{len(workbook.sheetnames)} arkuszy pliku Excel (przeszukano pierwsze {_HEADER_SCAN_ROWS} "
-            "wierszy każdego arkusza). Sprawdź nagłówki albo wyeksportuj właściwy arkusz osobno do CSV."
+            f"No designator column found (Designator/Reference/RefDes) in any of the "
+            f"{len(workbook.sheetnames)} sheet(s) of the Excel file (searched the first {_HEADER_SCAN_ROWS} "
+            "rows of each sheet). Check the headers, or export the right sheet to CSV separately."
         ]
 
     sheet_title, header_row_index, header = header_info
@@ -258,11 +258,11 @@ def parse_bom_xlsx(path: str) -> tuple[list[BomComponent], list[str]]:
     warnings: list[str] = []
     if not components:
         warnings.append(
-            f"Znaleziono nagłówek z oznaczeniami w arkuszu '{sheet_title}' (wiersz {header_row_index + 1}), "
-            "ale nie udało się z niego odczytać żadnych komponentów."
+            f"Found a designator header in sheet '{sheet_title}' (row {header_row_index + 1}), "
+            "but couldn't read any components from it."
         )
     elif sheet_title != workbook.sheetnames[0]:
-        warnings.append(f"BOM odczytano z arkusza '{sheet_title}' (nie pierwszego w pliku).")
+        warnings.append(f"BOM read from sheet '{sheet_title}' (not the first one in the file).")
     return components, warnings
 
 
@@ -282,7 +282,7 @@ def _read_text_file(path: str) -> tuple[str, str]:
         except UnicodeDecodeError:
             continue
     with open(path, "r", encoding="latin-1", errors="replace") as f:
-        return f.read(), "latin-1 (z zastępowaniem błędnych znaków)"
+        return f.read(), "latin-1 (replacing invalid characters)"
 
 
 def parse_bom_file(path: str) -> tuple[list[BomComponent], list[str]]:
@@ -295,5 +295,5 @@ def parse_bom_file(path: str) -> tuple[list[BomComponent], list[str]]:
     else:
         components, warnings = parse_bom_csv(text)
     if encoding != "utf-8-sig":
-        warnings = [f"Plik nie jest zapisany w UTF-8 — odczytano jako {encoding}."] + warnings
+        warnings = [f"File isn't saved as UTF-8 — read as {encoding}."] + warnings
     return components, warnings
