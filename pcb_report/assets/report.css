@@ -294,9 +294,26 @@ body.is-resizing-sidebar, body.is-resizing-col { cursor: col-resize; user-select
 
 .shortage-panel {
   border-top: 1px solid var(--gray-200); background: var(--surface);
-  padding: 12px 20px; max-height: 200px; overflow-y: auto; flex-shrink: 0;
+  padding: 12px 20px; flex-shrink: 0; position: relative;
+  height: 200px; min-height: 44px; display: flex; flex-direction: column; overflow: hidden;
 }
-.shortage-panel h2 { margin: 0 0 8px; font-size: 0.9rem; color: var(--heading); }
+/* Minimized -- just the header bar, same idea as the upload-panel toggle
+   above the component list. */
+.shortage-panel.is-collapsed { height: auto !important; }
+/* Drag handle on the panel's top edge -- it's docked to the bottom of the
+   page, so "resize" here means dragging its top border up/down, unlike the
+   sidebar/column handles which drag a right edge. Straddles the border the
+   same way the sidebar handle does. */
+.shortage-panel__resize-handle {
+  position: absolute; top: -3px; left: 0; right: 0; height: 6px; cursor: row-resize; z-index: 2;
+}
+.shortage-panel__resize-handle:hover, body.is-resizing-shortage .shortage-panel__resize-handle { background: var(--blue); opacity: 0.5; }
+.shortage-panel.is-collapsed .shortage-panel__resize-handle { display: none; }
+.shortage-panel__header { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.shortage-panel__header h2 { margin: 0; font-size: 0.9rem; color: var(--heading); }
+.shortage-panel__toggle { border: none; background: transparent; color: var(--gray-500); font-size: 0.8rem; padding: 2px 6px; }
+.shortage-panel__body { flex: 1; min-height: 0; overflow-y: auto; margin-top: 8px; }
+.shortage-panel.is-collapsed .shortage-panel__body { display: none; }
 .shortage-panel__empty { margin: 0; font-size: 0.8rem; color: var(--gray-500); }
 .shortage-panel__list { display: flex; flex-direction: column; gap: 6px; }
 .shortage-panel__item {

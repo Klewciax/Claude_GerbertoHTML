@@ -51,7 +51,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "dopasowaniu kadru/przybliżenia widoku płytki. Każdą warstwę można i tak dowolnie włączyć/"
         "wyłączyć bezpośrednio w raporcie, bez tej flagi.",
     )
-    parser.add_argument("-o", "--output", default=None, metavar="PLIK", help="Ścieżka wyjściowego pliku HTML (domyślnie <KATALOG>/report.html).")
+    parser.add_argument(
+        "-o", "--output", default=None, metavar="PLIK",
+        help="Ścieżka wyjściowego pliku HTML (domyślnie <KATALOG>/report.html). Narzędzie zawsze "
+        "zapisuje dwie wersje językowe: pod tą ścieżką (domyślnie PL) i drugą z dopiskiem '.de' "
+        "przed rozszerzeniem (np. report.de.html) — każda otwiera się od razu w swoim języku, "
+        "oba pliki mają identyczną zawartość/dane i wspólne ID raportu, różni je tylko domyślny "
+        "język interfejsu (przełącznik PL/DE w obu i tak działa).",
+    )
     parser.add_argument("--report-id", default=None, help="Wymuś konkretne ID raportu (klucz localStorage) zamiast wyliczonego automatycznie.")
     parser.add_argument(
         "--non-interactive",
@@ -245,17 +252,35 @@ def main(argv: list[str] | None = None) -> int:
     if gerber_result.component_shapes:
         print(f"  → dopasowano realny obrys silkscreen/courtyard dla {len(gerber_result.component_shapes)} komponentów")
 
-    html = build_report_html(
+    output_path = Path(args.output) if args.output else project_dir / "report.html"
+
+    # Two files, one per UI language (PL default + a DE-default copy) --
+    # each opens directly in that language instead of everyone having to
+    # find and click the DE toggle by hand. Cheap: render_gerber_files()
+    # already did the expensive work above, this just re-serializes the
+    # same data with a different starting language.
+    html_pl = build_report_html(
         gerber_paths=resolved.gerber_paths,
         gerber_result=gerber_result,
         variants=variants,
         default_variant=default_variant,
         report_id=args.report_id,
+        default_lang="pl",
     )
+    output_path.write_text(html_pl, encoding="utf-8")
+    print(f"\nGotowe (PL): {output_path.resolve()}")
 
-    output_path = Path(args.output) if args.output else project_dir / "report.html"
-    output_path.write_text(html, encoding="utf-8")
-    print(f"\nGotowe: {output_path.resolve()}")
+    output_path_de = output_path.with_name(f"{output_path.stem}.de{output_path.suffix}")
+    html_de = build_report_html(
+        gerber_paths=resolved.gerber_paths,
+        gerber_result=gerber_result,
+        variants=variants,
+        default_variant=default_variant,
+        report_id=args.report_id,
+        default_lang="de",
+    )
+    output_path_de.write_text(html_de, encoding="utf-8")
+    print(f"Gotowe (DE): {output_path_de.resolve()}")
     return 0
 
 

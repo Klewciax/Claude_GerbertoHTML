@@ -40,6 +40,7 @@ def build_report_html(
     default_variant: str,
     report_id: str | None = None,
     title: str = "GerbertoHTML — raport Assembly / Traceability",
+    default_lang: str = "pl",
 ) -> str:
     css = (_ASSETS_DIR / "report.css").read_text(encoding="utf-8")
     js = (_ASSETS_DIR / "report.js").read_text(encoding="utf-8")
@@ -55,6 +56,13 @@ def build_report_html(
         "variants": {name: v.to_dict() for name, v in variants.items()},
         "defaultVariant": default_variant,
         "componentShapes": gerber_result.component_shapes,
+        # Only the *initial* language shown before anyone has toggled
+        # PL/DE in this exact file -- report.js still prefers whatever
+        # language was last picked in this file's own browser storage.
+        # Lets cli.py write out both a PL- and a DE-default copy that
+        # each open in the right language out of the box, instead of
+        # everyone having to click DE by hand every time.
+        "defaultLang": default_lang if default_lang in ("pl", "de") else "pl",
     }
     data_json = _escape_for_script_tag(json.dumps(data, ensure_ascii=False))
 
@@ -66,7 +74,7 @@ def build_report_html(
     generated_label = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     return f"""<!DOCTYPE html>
-<html lang="pl">
+<html lang="{data['defaultLang']}">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -195,9 +203,15 @@ def build_report_html(
       </div>
 
       <div class="shortage-panel" id="shortagePanel">
-        <h2 data-i18n="shortage_heading">Braki (dostawa / montaż)</h2>
-        <p class="shortage-panel__empty" id="shortageEmpty" data-i18n="shortage_empty">Brak braków — wszystko dostarczone i zamontowane w potrzebnej ilości.</p>
-        <div class="shortage-panel__list" id="shortageList"></div>
+        <div class="shortage-panel__resize-handle" id="shortagePanelResizer" data-i18n-title="shortage_resize_title" title="Przeciągnij, aby zmienić wysokość panelu"></div>
+        <div class="shortage-panel__header">
+          <h2 data-i18n="shortage_heading">Braki (dostawa / montaż)</h2>
+          <button type="button" id="shortagePanelToggleBtn" class="shortage-panel__toggle" aria-expanded="true" data-i18n-title="shortage_toggle_title" title="Zwiń/rozwiń">▾</button>
+        </div>
+        <div class="shortage-panel__body" id="shortagePanelBody">
+          <p class="shortage-panel__empty" id="shortageEmpty" data-i18n="shortage_empty">Brak braków — wszystko dostarczone i zamontowane w potrzebnej ilości.</p>
+          <div class="shortage-panel__list" id="shortageList"></div>
+        </div>
       </div>
       </div>
     </section>

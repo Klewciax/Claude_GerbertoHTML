@@ -47,6 +47,8 @@
       board_empty: 'Brak wyrenderowanej płytki PCB (sprawdź ostrzeżenia po lewej).',
       shortage_heading: 'Braki (dostawa / montaż)',
       shortage_empty: 'Brak braków — wszystko dostarczone i zamontowane w potrzebnej ilości.',
+      shortage_toggle_title: 'Zwiń/rozwiń panel braków',
+      shortage_resize_title: 'Przeciągnij, aby zmienić wysokość panelu',
       rework_heading: 'Wspólna lista przeróbek (rework)',
       rework_hint: 'Przeróbki dodane tutaj są wspólne dla wszystkich sampli — dla każdego sampla zaznaczysz, które z nich wystąpiły.',
       rework_input_placeholder: 'np. Wymiana R12 na wartość 10k',
@@ -152,6 +154,8 @@
       board_empty: 'Keine gerenderte Leiterplatte (siehe Warnungen links).',
       shortage_heading: 'Fehlmengen (Lieferung / Bestückung)',
       shortage_empty: 'Keine Fehlmengen — alles in benötigter Menge geliefert und bestückt.',
+      shortage_toggle_title: 'Fehlmengen-Panel ein-/ausklappen',
+      shortage_resize_title: 'Ziehen, um die Panelhöhe zu ändern',
       rework_heading: 'Gemeinsame Nacharbeitsliste (Rework)',
       rework_hint: 'Hier hinzugefügte Nacharbeiten gelten für alle Muster — für jedes Muster markierst du, welche davon aufgetreten sind.',
       rework_input_placeholder: 'z. B. R12 gegen 10k ersetzt',
@@ -229,11 +233,12 @@
   };
   var LANG_STORAGE_KEY = 'pcb-report:lang';
   var LANG = (function () {
+    var fallback = I18N[DATA.defaultLang] ? DATA.defaultLang : 'pl';
     try {
       var saved = window.localStorage.getItem(LANG_STORAGE_KEY);
-      return I18N[saved] ? saved : 'pl';
+      return I18N[saved] ? saved : fallback;
     } catch (e) {
-      return 'pl';
+      return fallback;
     }
   })();
 
@@ -814,6 +819,61 @@
       document.querySelectorAll('.col-resizer.is-active').forEach(function (h) { h.classList.remove('is-active'); });
       document.body.classList.remove('is-resizing-col');
       saveColWidths();
+    });
+  })();
+
+  // ---------------------------------------------------------------------
+  // Shortage panel -- resizable (drag its top edge) and collapsible (just
+  // the header bar), same reasoning as the sidebar/columns above: a
+  // page-level screen preference, persisted the same way.
+  // ---------------------------------------------------------------------
+  var SHORTAGE_HEIGHT_KEY = 'pcb-report:shortageHeight';
+  var SHORTAGE_COLLAPSED_KEY = 'pcb-report:shortageCollapsed';
+  var shortagePanelEl = document.getElementById('shortagePanel');
+  var shortagePanelResizer = document.getElementById('shortagePanelResizer');
+  var shortagePanelToggleBtn = document.getElementById('shortagePanelToggleBtn');
+  (function () {
+    try {
+      var savedHeight = parseInt(window.localStorage.getItem(SHORTAGE_HEIGHT_KEY), 10);
+      if (savedHeight) shortagePanelEl.style.height = savedHeight + 'px';
+    } catch (e) { /* ignore */ }
+
+    var collapsed = false;
+    try { collapsed = window.localStorage.getItem(SHORTAGE_COLLAPSED_KEY) === '1'; } catch (e) { /* ignore */ }
+    function applyCollapsed() {
+      shortagePanelEl.classList.toggle('is-collapsed', collapsed);
+      shortagePanelToggleBtn.textContent = collapsed ? '▸' : '▾';
+      shortagePanelToggleBtn.setAttribute('aria-expanded', String(!collapsed));
+    }
+    applyCollapsed();
+    shortagePanelToggleBtn.addEventListener('click', function () {
+      collapsed = !collapsed;
+      applyCollapsed();
+      try { window.localStorage.setItem(SHORTAGE_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch (e) { /* ignore */ }
+    });
+
+    var dragging = false, startY = 0, startHeight = 0;
+    shortagePanelResizer.addEventListener('pointerdown', function (e) {
+      if (collapsed) return;
+      dragging = true;
+      startY = e.clientY;
+      startHeight = shortagePanelEl.getBoundingClientRect().height;
+      document.body.classList.add('is-resizing-shortage');
+      e.preventDefault();
+    });
+    document.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      var min = 44, max = Math.round(window.innerHeight * 0.7);
+      // Dragging up (negative delta) grows the panel -- its top edge is
+      // what's being dragged, and it's docked to the bottom of the page.
+      var h = Math.min(max, Math.max(min, startHeight - (e.clientY - startY)));
+      shortagePanelEl.style.height = h + 'px';
+    });
+    document.addEventListener('pointerup', function () {
+      if (!dragging) return;
+      dragging = false;
+      document.body.classList.remove('is-resizing-shortage');
+      try { window.localStorage.setItem(SHORTAGE_HEIGHT_KEY, String(Math.round(shortagePanelEl.getBoundingClientRect().height))); } catch (e) { /* ignore */ }
     });
   })();
 

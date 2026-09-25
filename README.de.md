@@ -37,18 +37,28 @@ siehe Abschnitt „Architektur“ weiter unten).
 (Eingabedaten + Bauteilliste) **an ihrer rechten Kante ziehen**, um sie breiter oder schmaler zu
 machen, und in der Bauteiltabelle selbst lässt sich **jede Spalte an ihrer rechten Kante ziehen**, um
 ihre Breite anzupassen (besonders nützlich auf einem kleineren Laptop-Bildschirm, wo die Standardmaße
-Inhalte abschneiden können). Design, Seitenleistenbreite und Spaltenbreiten sind Browsereinstellungen
-(wie die Sprache) — sie gehören nicht zu den Berichtsdaten und werden daher nicht über Export/Import
-des Status übertragen; jede Person passt sie unabhängig an ihren eigenen Bildschirm an.
+Inhalte abschneiden können). Das Panel **„Fehlmengen (Lieferung / Bestückung)“** unten im selben Tab
+funktioniert genauso: seine **obere Kante lässt sich ziehen**, um seine Höhe zu ändern, und der Pfeil
+▾/▸ neben der Überschrift **klappt es auf die reine Kopfzeile zusammen** (nützlich, wenn die
+Fehlmengenliste gerade im Weg ist, aber nicht gebraucht wird). Design, Seitenleistenbreite,
+Spaltenbreiten sowie Höhe/Zustand des Fehlmengen-Panels sind Browsereinstellungen (wie die Sprache) —
+sie gehören nicht zu den Berichtsdaten und werden daher nicht über Export/Import des Status
+übertragen; jede Person passt sie unabhängig an ihren eigenen Bildschirm an.
 
-**Sprachversion des Berichts:** Oben rechts im erzeugten Bericht befindet sich ein Umschalter
-**PL / DE** — er ändert die Sprache der gesamten Oberfläche (Beschriftungen, Schaltflächen,
-Tabellenüberschriften, Meldungen), ohne die Datei neu zu erzeugen. So kann dieselbe `report.html`
-sowohl an polnisch- als auch an deutschsprachige Empfänger verschickt werden. Die Auswahl wird im
-Browser gemerkt (unabhängig vom `localStorage` eines einzelnen Berichts). Warnungen aus dem Parsen der
-Eingabedateien (sichtbar im Panel „Eingabedaten“) sowie die Konsolenausgabe des Tools selbst bleiben
-unabhängig von diesem Umschalter auf Polnisch — sie richten sich an die Person, die das Tool ausführt,
-nicht an den Empfänger des Berichts.
+**Sprachversion des Berichts:** Das Tool speichert **sofort zwei HTML-Dateien** — die Standarddatei
+(`report.html` oder der mit `-o` angegebene Pfad) öffnet sich auf Polnisch, und daneben eine zweite mit
+dem Zusatz `.de` vor der Dateiendung (z. B. `report.de.html`), die sich direkt auf Deutsch öffnet — der
+DE-Umschalter muss nicht mehr bei jedem Öffnen von Hand angeklickt werden, es reicht, dem
+deutschsprachigen Empfänger diese zweite Datei zu schicken. Beide Dateien haben identischen
+Inhalt/identische Daten und dieselbe Bericht-ID (Export/Import des Status funktioniert zwischen ihnen
+ohne Warnung wegen „anderem Bericht“) — sie unterscheiden sich nur in der beim ersten Öffnen gezeigten
+Sprache. In beiden Dateien funktioniert weiterhin der Umschalter **PL / DE** oben rechts, der die
+Sprache der gesamten Oberfläche ändert (Beschriftungen, Schaltflächen, Tabellenüberschriften,
+Meldungen), ohne die Datei neu zu erzeugen; die Auswahl wird im Browser gemerkt und hat ab dann Vorrang
+vor der Standardsprache der jeweiligen Datei. Warnungen aus dem Parsen der Eingabedateien (sichtbar im
+Panel „Eingabedaten“) sowie die Konsolenausgabe des Tools selbst bleiben unabhängig von diesem
+Umschalter auf Polnisch — sie richten sich an die Person, die das Tool ausführt, nicht an den
+Empfänger des Berichts.
 
 ## Installation (3 Schritte)
 
@@ -165,7 +175,7 @@ Anschließend `report.html` im Browser öffnen.
 | `--bom DATEI` | nein | Stücklistendatei im Format `.csv`, `.xml` oder `.xlsx` (Excel). Weglassen = automatische Erkennung im `VERZEICHNIS`. |
 | `--pnp DATEI [DATEI ...]` | nein | Pick-and-Place-Datei(en) `.csv`/`.txt` — mehr als eine, wenn Top/Bottom getrennte Dateien sind (typisch bei Altium). Weglassen = automatische Erkennung im `VERZEICHNIS`. Ohne jede Datei müssen alle Bauteile im Bericht manuell positioniert werden. |
 | `--unit {mm,inch}` | nein | Standardeinheit der Koordinaten in der Pick-and-Place-Datei, nur verwendet, wenn der Spaltenname selbst keine Einheit angibt (z. B. nur `X`/`Y` statt `Center-X(mm)`) — siehe unten. |
-| `-o, --output DATEI` | nein | Ausgabepfad (Standard: `<VERZEICHNIS>/report.html`). |
+| `-o, --output DATEI` | nein | Ausgabepfad für die PL-Version (Standard: `<VERZEICHNIS>/report.html`) — daneben entsteht immer auch eine DE-Version unter demselben Namen mit dem Zusatz `.de` (z. B. `report.de.html`), siehe Abschnitt „Sprachversion des Berichts“ oben. |
 | `--report-id ID` | nein | Erzwungener `localStorage`-Schlüssel (Standard: automatisch berechnet aus den Gerber-Dateinamen + der Menge der Bezeichnungen — ermöglicht die erneute Erzeugung des Berichts für dasselbe Projekt, ohne bereits gesetzte Checkboxen zu verlieren). |
 | `--all-layers` | nein | Standardmäßig alle Ebenen im Panel „Ebenen“ des Berichts aktivieren (auch Kupfer, Maske, innere Kupferlagen, sonstige mechanische), statt nur der für die Bestückung nötigen, und diese auch bei der automatischen Bestimmung des Anfangs-Zooms/Bildausschnitts der Platine berücksichtigen (siehe Abschnitt „Format der Eingabedateien“). Jede Ebene lässt sich trotzdem direkt im Bericht beliebig umschalten. |
 | `--non-interactive` | nein | Im Terminal nicht nach dem Zweck nicht erkannter Dateien fragen (siehe „Wie die automatische Erkennung funktioniert“) — solche Dateien einfach überspringen, wie in Versionen ohne diese Funktion. |
