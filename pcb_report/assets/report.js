@@ -1963,6 +1963,7 @@
   // ---------------------------------------------------------------------
   var variantPicker = document.getElementById('variantPicker');
   var variantSelect = document.getElementById('variantSelect');
+  var variantPickerToggleBtn = document.getElementById('variantPickerToggleBtn');
   var variantNames = Object.keys(DATA.variants);
   if (variantNames.length > 1) {
     variantPicker.style.display = '';
@@ -1972,6 +1973,12 @@
     variantSelect.value = state.activeVariant;
     variantSelect.addEventListener('change', function () {
       switchVariant(variantSelect.value);
+    });
+    variantPickerToggleBtn.addEventListener('click', function () {
+      var isOpen = variantSelect.style.display !== 'none';
+      variantSelect.style.display = isOpen ? 'none' : '';
+      variantPickerToggleBtn.textContent = isOpen ? '▸' : '▾';
+      variantPickerToggleBtn.setAttribute('aria-expanded', String(!isOpen));
     });
   }
 

@@ -372,7 +372,9 @@ pick-and-place) dla każdego wariantu. GerbertoHTML wykrywa to automatycznie:
   wymieniony, jeśli nazwa pliku na to wskazuje).
 
 W wygenerowanym raporcie, jeśli wykryto więcej niż jeden wariant, w sidebarze Assembly pojawia się
-lista rozwijana **„Wariant montażu”**. Przełączenie jej:
+lista rozwijana **„Wariant montażu”** — z własną strzałką ▾/▸ obok nagłówka, która **zwija ją do
+samego paska nagłówka** (dokładnie tak jak panel „Dane wejściowe” powyżej), gdy nie jest akurat
+potrzebna. Przełączenie listy:
 
 - Podmienia listę komponentów, sumy i panel braków na dane właściwe wybranemu wariantowi.
 - Pokazuje na wizualizacji płytki tylko znaczniki komponentów należące do tego wariantu (reszta

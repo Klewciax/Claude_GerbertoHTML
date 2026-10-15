@@ -122,7 +122,10 @@ def build_report_html(
           </div>
 
           <div class="variant-picker" id="variantPicker" style="display:none;">
-            <label for="variantSelect" data-i18n="variant_label">Wariant montażu</label>
+            <div class="variant-picker__header" id="variantPickerHeader">
+              <label for="variantSelect" data-i18n="variant_label">Wariant montażu</label>
+              <button type="button" id="variantPickerToggleBtn" class="variant-picker__toggle" aria-expanded="true" data-i18n-title="input_data_toggle_title" title="Pokaż/ukryj">▾</button>
+            </div>
             <select id="variantSelect"></select>
           </div>
 

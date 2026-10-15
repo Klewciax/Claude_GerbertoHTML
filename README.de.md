@@ -396,7 +396,9 @@ automatisch:
   Bestückungsvariante ist, hier ebenfalls aufgeführt werden, wenn der Dateiname darauf hindeutet).
 
 Im erzeugten Bericht erscheint, wenn mehr als eine Variante erkannt wurde, in der Assembly-Seitenleiste
-eine Auswahlliste **„Bestückungsvariante“**. Ihr Umschalten:
+eine Auswahlliste **„Bestückungsvariante“** — mit einem eigenen Pfeil ▾/▸ neben der Überschrift, der
+sie **auf die reine Kopfzeile zusammenklappt** (genau wie das Panel „Eingabedaten“ oben), wenn sie
+gerade nicht gebraucht wird. Das Umschalten der Liste:
 
 - Ersetzt die Bauteilliste, die Summen und das Fehlmengen-Panel durch die Daten der gewählten Variante.
 - Zeigt in der Platinenvisualisierung nur die Markierungen der Bauteile, die zu dieser Variante gehören
