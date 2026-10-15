@@ -353,6 +353,13 @@ schaltet die Ansicht um:
   einzelnen Position auf der Platine; zeigt den Mengenstatus der gesamten Gruppe, zu der sie gehört, an,
   erlaubt aber keine Bearbeitung der Zahlen (das Bearbeiten ist nur in der gruppierten Ansicht möglich).
 
+Unter der Gruppierungs-Checkbox gibt es ein Feld **„Nach MPN suchen“** — filtert die Liste live beim
+Tippen auf Zeilen (gruppiert oder flach — funktioniert in beiden Ansichten), deren MPN den
+eingegebenen Text **enthält** (ohne Groß-/Kleinschreibung, z. B. findet „stm32“ auch „STM32F103C8T6“).
+Nützlich bei langen Stücklisten, um schnell zu prüfen, ob und wie viele Stück eines Bauteils auf der
+Platine verbaut sind, ohne die ganze Tabelle durchzuscrollen. Ein leeres Suchfeld zeigt wie bisher
+alles an; die Sucheingabe wird nicht zwischen dem Öffnen des Berichts gespeichert.
+
 Ein Klick auf eine Zeile (oder eine Markierung auf der Platine) in der **gruppierten** Ansicht hebt auf
 der Platine **alle** Bezeichnungen des jeweiligen Bauteils gleichzeitig hervor. In der **flachen**
 Ansicht wird nur die ausgewählte, einzelne Bezeichnung hervorgehoben.

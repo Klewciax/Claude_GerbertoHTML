@@ -37,6 +37,8 @@
       summary_delivered: 'Dostarczono',
       summary_mounted: 'Zamontowano',
       group_by_part: 'Grupuj wg części (MPN)',
+      mpn_search_placeholder: 'Szukaj po MPN…',
+      mpn_search_no_results: 'Żaden komponent nie pasuje do wyszukiwania.',
       no_components: 'Brak komponentów w BOM.',
       side_top: 'Góra (Top)',
       side_bottom: 'Dół (Bottom)',
@@ -144,6 +146,8 @@
       summary_delivered: 'Geliefert',
       summary_mounted: 'Bestückt',
       group_by_part: 'Nach Bauteil gruppieren (MPN)',
+      mpn_search_placeholder: 'Nach MPN suchen…',
+      mpn_search_no_results: 'Kein Bauteil passt zur Suche.',
       no_components: 'Keine Bauteile in der Stückliste.',
       side_top: 'Oben (Top)',
       side_bottom: 'Unten (Bottom)',
@@ -769,8 +773,10 @@
   var listHead = document.getElementById('componentListHead');
   var listCols = document.getElementById('componentListCols');
   var listEmpty = document.getElementById('componentListEmpty');
+  var mpnSearchEmpty = document.getElementById('mpnSearchEmpty');
   var listTable = document.getElementById('componentListTable');
   var groupToggle = document.getElementById('groupByPartToggle');
+  var mpnSearchInput = document.getElementById('mpnSearchInput');
 
   // Per-column widths, independent of one another (dragging one column
   // doesn't steal width from its neighbor -- the table just grows and
@@ -985,12 +991,26 @@
     if (rows.length === 0) {
       listTable.style.display = 'none';
       listEmpty.style.display = 'block';
+      mpnSearchEmpty.style.display = 'none';
+      return;
+    }
+    var searchTerm = mpnSearchInput.value.trim().toLowerCase();
+    var visibleRows = searchTerm
+      ? rows.filter(function (r) { return (r.mpn || '').toLowerCase().indexOf(searchTerm) !== -1; })
+      : rows;
+    if (visibleRows.length === 0) {
+      listTable.style.display = 'none';
+      listEmpty.style.display = 'none';
+      mpnSearchEmpty.style.display = 'block';
       return;
     }
     listTable.style.display = '';
     listEmpty.style.display = 'none';
-    listBody.innerHTML = rows.map(state.groupByPart ? groupedRowHtml : flatRowHtml).join('');
+    mpnSearchEmpty.style.display = 'none';
+    listBody.innerHTML = visibleRows.map(state.groupByPart ? groupedRowHtml : flatRowHtml).join('');
   }
+
+  mpnSearchInput.addEventListener('input', renderComponentList);
 
   listBody.addEventListener('click', function (e) {
     var mapBtn = e.target.closest('[data-action="map"]');

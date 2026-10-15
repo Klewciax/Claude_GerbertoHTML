@@ -155,10 +155,12 @@ def build_report_html(
               <input type="checkbox" id="groupByPartToggle" checked />
               <span data-i18n="group_by_part">Grupuj wg części (MPN)</span>
             </label>
+            <input type="search" id="mpnSearchInput" class="component-list__search" data-i18n-placeholder="mpn_search_placeholder" placeholder="Szukaj po MPN…" />
           </div>
 
           <div class="component-list">
             <div class="component-list--empty" id="componentListEmpty" data-i18n="no_components" style="display:none;">Brak komponentów w BOM.</div>
+            <div class="component-list--empty" id="mpnSearchEmpty" data-i18n="mpn_search_no_results" style="display:none;">Żaden komponent nie pasuje do wyszukiwania.</div>
             <table id="componentListTable">
               <colgroup id="componentListCols"></colgroup>
               <thead id="componentListHead"></thead>

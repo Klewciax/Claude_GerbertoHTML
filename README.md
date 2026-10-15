@@ -331,6 +331,13 @@ widok:
   pojedynczej pozycji na płytce; pokazuje status ilościowy całej grupy, do której należy, ale nie
   pozwala edytować liczb (edycja jest tylko w widoku zgrupowanym).
 
+Pod checkboxem grupowania jest pole **„Szukaj po MPN”** — filtruje listę na żywo, podczas pisania, do
+wierszy (zgrupowanych lub płaskich — działa w obu widokach), których numer MPN **zawiera** wpisany
+tekst (bez rozróżniania wielkości liter, np. „stm32” znajdzie „STM32F103C8T6”). Przydatne przy
+długich listach BOM, żeby szybko sprawdzić, czy i ile sztuk danego elementu jest na płytce, bez
+przewijania całej tabeli. Puste pole wyszukiwania pokazuje wszystko jak dotychczas; wyszukiwanie nie
+jest zapisywane między otwarciami raportu.
+
 Kliknięcie wiersza (lub znacznika na płytce) w widoku **zgrupowanym** podświetla na płytce
 **wszystkie** refdesy danej części naraz. W widoku **płaskim** podświetla się tylko wybrany,
 pojedynczy refdes.

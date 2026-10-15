@@ -239,10 +239,13 @@ body.is-resizing-sidebar, body.is-resizing-col { cursor: col-resize; user-select
   background: var(--surface); color: var(--gray-900); font-size: 0.82rem;
 }
 
-.component-list__controls { padding: 0 16px 10px; }
+.component-list__controls { padding: 0 16px 10px; display: flex; flex-direction: column; gap: 8px; }
 .component-list__group-toggle {
   display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--gray-700);
   cursor: pointer;
+}
+.component-list__search {
+  padding: 6px 10px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 0.8rem;
 }
 
 .component-list { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 16px; }
