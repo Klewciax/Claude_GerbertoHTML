@@ -130,17 +130,23 @@ def build_report_html(
           </div>
 
           <div class="production-panel">
-            <div class="production-panel__field">
-              <label for="projectNumberInput" data-i18n="project_number_label">Numer projektu</label>
-              <input type="text" id="projectNumberInput" data-i18n-placeholder="project_number_placeholder" placeholder="np. P2024-118" />
+            <div class="production-panel__header">
+              <h2 data-i18n="production_panel_heading">Planowanie produkcji</h2>
+              <button type="button" id="productionPanelToggleBtn" class="production-panel__toggle" aria-expanded="true" data-i18n-title="input_data_toggle_title" title="Pokaż/ukryj">▾</button>
             </div>
-            <div class="production-panel__field">
-              <label for="unitCountInput" data-i18n="unit_count_label">Ilość sztuk do montażu</label>
-              <input type="number" id="unitCountInput" min="0" step="1" />
-            </div>
-            <div class="production-panel__field" id="unitPickerField" style="display:none;">
-              <label for="unitSelect" data-i18n="unit_picker_label">Aktualnie montowana płytka</label>
-              <select id="unitSelect"></select>
+            <div class="production-panel__body" id="productionPanelBody">
+              <div class="production-panel__field">
+                <label for="projectNumberInput" data-i18n="project_number_label">Numer projektu</label>
+                <input type="text" id="projectNumberInput" data-i18n-placeholder="project_number_placeholder" placeholder="np. P2024-118" />
+              </div>
+              <div class="production-panel__field">
+                <label for="unitCountInput" data-i18n="unit_count_label">Ilość sztuk do montażu</label>
+                <input type="number" id="unitCountInput" min="0" step="1" />
+              </div>
+              <div class="production-panel__field" id="unitPickerField" style="display:none;">
+                <label for="unitSelect" data-i18n="unit_picker_label">Aktualnie montowana płytka</label>
+                <select id="unitSelect"></select>
+              </div>
             </div>
           </div>
 

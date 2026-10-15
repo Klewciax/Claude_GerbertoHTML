@@ -28,6 +28,7 @@
       input_data_toggle_title: 'Pokaż/ukryj',
       input_gerber_label: 'Plik(i) Gerber',
       variant_label: 'Wariant montażu',
+      production_panel_heading: 'Planowanie produkcji',
       project_number_label: 'Numer projektu',
       project_number_placeholder: 'np. P2024-118',
       unit_count_label: 'Ilość sztuk do montażu',
@@ -137,6 +138,7 @@
       input_data_toggle_title: 'Anzeigen/Ausblenden',
       input_gerber_label: 'Gerber-Datei(en)',
       variant_label: 'Bestückungsvariante',
+      production_panel_heading: 'Produktionsplanung',
       project_number_label: 'Projektnummer',
       project_number_placeholder: 'z. B. P2024-118',
       unit_count_label: 'Anzahl zu bestückender Platinen',
@@ -1428,6 +1430,15 @@
     uploadPanelBody.style.display = isOpen ? 'none' : 'block';
     uploadPanelToggleBtn.textContent = isOpen ? '▸' : '▾';
     uploadPanelToggleBtn.setAttribute('aria-expanded', String(!isOpen));
+  });
+
+  var productionPanelToggleBtn = document.getElementById('productionPanelToggleBtn');
+  var productionPanelBody = document.getElementById('productionPanelBody');
+  productionPanelToggleBtn.addEventListener('click', function () {
+    var isOpen = productionPanelBody.style.display !== 'none';
+    productionPanelBody.style.display = isOpen ? 'none' : 'flex';
+    productionPanelToggleBtn.textContent = isOpen ? '▸' : '▾';
+    productionPanelToggleBtn.setAttribute('aria-expanded', String(!isOpen));
   });
 
   function renderBoard() {

@@ -399,8 +399,10 @@ dotychczasowym działaniu.
 
 ## Planowanie produkcji (numer projektu, ilość sztuk, montaż per płytka)
 
-W sidebarze Assembly, pod wyborem wariantu, jest panel **„Numer projektu”** / **„Ilość sztuk do
-montażu”** — dwa proste, zawsze dostępne pola. Wypełnienie ich obu włącza dodatkowe śledzenie,
+W sidebarze Assembly, pod wyborem wariantu, jest panel **„Planowanie produkcji”** — z własną strzałką
+▾/▸ obok nagłówka, która zwija go do samego paska nagłówka (tak jak „Dane wejściowe” i „Wariant
+montażu” powyżej), gdy nie jest akurat potrzebny. W środku są dwa proste, zawsze dostępne pola:
+**„Numer projektu”** / **„Ilość sztuk do montażu”**. Wypełnienie ich obu włącza dodatkowe śledzenie,
 niezależne dla każdego wariantu montażu (jeśli są warianty — każdy ma swój własny numer projektu i
 swoją własną ilość, ustawiane osobno):
 

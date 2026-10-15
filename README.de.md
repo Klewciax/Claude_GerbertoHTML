@@ -424,10 +424,13 @@ bisherigen Verhalten ändert sich nichts.
 
 ## Produktionsplanung (Projektnummer, Stückzahl, Bestückung pro Platine)
 
-In der Assembly-Seitenleiste, unter der Variantenauswahl, gibt es ein Panel **„Projektnummer“** /
-**„Anzahl zu bestückender Platinen“** — zwei einfache, immer verfügbare Felder. Werden beide
-ausgefüllt, aktiviert das eine zusätzliche Verfolgung, unabhängig für jede Bestückungsvariante (gibt
-es Varianten, hat jede ihre eigene Projektnummer und eigene Stückzahl, getrennt einstellbar):
+In der Assembly-Seitenleiste, unter der Variantenauswahl, gibt es ein Panel **„Produktionsplanung“** —
+mit einem eigenen Pfeil ▾/▸ neben der Überschrift, der es auf die reine Kopfzeile zusammenklappt
+(genau wie „Eingabedaten“ und „Bestückungsvariante“ oben), wenn es gerade nicht gebraucht wird. Darin
+befinden sich zwei einfache, immer verfügbare Felder: **„Projektnummer“** / **„Anzahl zu bestückender
+Platinen“**. Werden beide ausgefüllt, aktiviert das eine zusätzliche Verfolgung, unabhängig für jede
+Bestückungsvariante (gibt es Varianten, hat jede ihre eigene Projektnummer und eigene Stückzahl,
+getrennt einstellbar):
 
 - **Anzahl zu bestückender Platinen** multipliziert das Feld **„Benötigt“** jedes Bauteils mit dieser
   Zahl (z. B. ein Widerstand wird 2× pro Platine benötigt, bei 10 zu bauenden Stück → Benötigt = 20)
