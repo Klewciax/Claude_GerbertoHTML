@@ -208,6 +208,12 @@ body.is-resizing-sidebar, body.is-resizing-col { cursor: col-resize; user-select
   padding: 4px 10px; border-radius: 6px; cursor: help;
 }
 
+.sidebar-toolbar { padding: 10px 16px; border-bottom: 1px solid var(--gray-200); background: var(--blue-pale); }
+.sidebar-toolbar__work-mode {
+  display: flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600;
+  color: var(--heading); cursor: pointer;
+}
+
 .upload-panel { padding: 10px 16px; border-bottom: 1px solid var(--gray-200); }
 .upload-panel__header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
 .upload-panel__header h2 { font-size: 0.9rem; margin: 0; color: var(--heading); }

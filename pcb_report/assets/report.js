@@ -24,6 +24,7 @@
       import_btn_title: 'Wczytaj wcześniej wyeksportowany plik stanu',
       meta_generated: 'Wygenerowano',
       meta_report_id: 'ID raportu',
+      work_mode_label: 'Tryb pracy (zwiń dane wejściowe / wariant / produkcję)',
       input_data_heading: 'Dane wejściowe',
       input_data_toggle_title: 'Pokaż/ukryj',
       input_gerber_label: 'Plik(i) Gerber',
@@ -134,6 +135,7 @@
       import_btn_title: 'Zuvor exportierte Statusdatei laden',
       meta_generated: 'Erstellt am',
       meta_report_id: 'Bericht-ID',
+      work_mode_label: 'Arbeitsmodus (Eingabedaten/Variante/Produktion einklappen)',
       input_data_heading: 'Eingabedaten',
       input_data_toggle_title: 'Anzeigen/Ausblenden',
       input_gerber_label: 'Gerber-Datei(en)',
@@ -331,6 +333,17 @@
 
   function uid(prefix) {
     return prefix + '_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+
+  // Shared by every collapsible sidebar panel (Dane wejściowe, Wariant
+  // montażu, Planowanie produkcji) and the "Tryb pracy" checkbox that
+  // collapses all of them at once -- openDisplay is whatever `display`
+  // value that particular body uses when shown (they're not all the same:
+  // 'block', 'flex', or '' for a plain <select>).
+  function setPanelCollapsed(bodyEl, btnEl, collapsed, openDisplay) {
+    bodyEl.style.display = collapsed ? 'none' : openDisplay;
+    btnEl.textContent = collapsed ? '▸' : '▾';
+    btnEl.setAttribute('aria-expanded', String(!collapsed));
   }
 
   // ---------------------------------------------------------------------
@@ -1426,19 +1439,13 @@
   var uploadPanelToggleBtn = document.getElementById('uploadPanelToggleBtn');
   var uploadPanelBody = document.getElementById('uploadPanelBody');
   uploadPanelToggleBtn.addEventListener('click', function () {
-    var isOpen = uploadPanelBody.style.display !== 'none';
-    uploadPanelBody.style.display = isOpen ? 'none' : 'block';
-    uploadPanelToggleBtn.textContent = isOpen ? '▸' : '▾';
-    uploadPanelToggleBtn.setAttribute('aria-expanded', String(!isOpen));
+    setPanelCollapsed(uploadPanelBody, uploadPanelToggleBtn, uploadPanelBody.style.display !== 'none', 'block');
   });
 
   var productionPanelToggleBtn = document.getElementById('productionPanelToggleBtn');
   var productionPanelBody = document.getElementById('productionPanelBody');
   productionPanelToggleBtn.addEventListener('click', function () {
-    var isOpen = productionPanelBody.style.display !== 'none';
-    productionPanelBody.style.display = isOpen ? 'none' : 'flex';
-    productionPanelToggleBtn.textContent = isOpen ? '▸' : '▾';
-    productionPanelToggleBtn.setAttribute('aria-expanded', String(!isOpen));
+    setPanelCollapsed(productionPanelBody, productionPanelToggleBtn, productionPanelBody.style.display !== 'none', 'flex');
   });
 
   function renderBoard() {
@@ -2006,12 +2013,26 @@
       switchVariant(variantSelect.value);
     });
     variantPickerToggleBtn.addEventListener('click', function () {
-      var isOpen = variantSelect.style.display !== 'none';
-      variantSelect.style.display = isOpen ? 'none' : '';
-      variantPickerToggleBtn.textContent = isOpen ? '▸' : '▾';
-      variantPickerToggleBtn.setAttribute('aria-expanded', String(!isOpen));
+      setPanelCollapsed(variantSelect, variantPickerToggleBtn, variantSelect.style.display !== 'none', '');
     });
   }
+
+  // ---------------------------------------------------------------------
+  // "Tryb pracy" (work mode) -- one checkbox that collapses all three
+  // panels above (Dane wejściowe / Wariant montażu / Planowanie produkcji)
+  // at once, instead of clicking each ▾/▸ individually. The variant
+  // picker is only touched when it's actually showing (more than one
+  // variant) -- otherwise there's nothing there to collapse.
+  // ---------------------------------------------------------------------
+  var workModeToggle = document.getElementById('workModeToggle');
+  workModeToggle.addEventListener('change', function () {
+    var collapse = workModeToggle.checked;
+    setPanelCollapsed(uploadPanelBody, uploadPanelToggleBtn, collapse, 'block');
+    setPanelCollapsed(productionPanelBody, productionPanelToggleBtn, collapse, 'flex');
+    if (variantNames.length > 1) {
+      setPanelCollapsed(variantSelect, variantPickerToggleBtn, collapse, '');
+    }
+  });
 
   // ---------------------------------------------------------------------
   // Production planning (project number, quantity to build, which unit is

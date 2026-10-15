@@ -41,6 +41,12 @@ szerokość panelu, szerokości kolumn oraz wysokość/zwinięcie panelu braków
 (jak język) — nie są częścią danych raportu, więc nie podróżują z eksportem/importem stanu, każda
 osoba dostosowuje je do swojego ekranu niezależnie.
 
+Każdy z trzech panelów na górze sidebaru Assembly (Dane wejściowe, Wariant montażu, Planowanie
+produkcji) zwija się osobno strzałką ▾/▸ przy swoim nagłówku — a checkbox **„Tryb pracy”** na samej
+górze sidebaru zwija (albo rozwija) **wszystkie trzy naraz** jednym kliknięciem, żeby szybko zrobić
+miejsce na listę komponentów, zamiast klikać w trzy osobne strzałki. To tylko wygodny skrót — każdy
+panel można potem i tak dowolnie rozwinąć z osobna, bez wpływu na stan checkboxa.
+
 **Wersja językowa raportu:** w prawym górnym rogu wygenerowanego raportu jest przełącznik **PL / DE** —
 zmienia język całego interfejsu (etykiety, przyciski, nagłówki tabel, komunikaty) bez ponownego
 generowania pliku, więc jeden `report.html` można wysłać zarówno polsko-, jak i niemieckojęzycznemu

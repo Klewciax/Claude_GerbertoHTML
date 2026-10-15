@@ -45,6 +45,13 @@ Spaltenbreiten sowie Höhe/Zustand des Fehlmengen-Panels sind Browsereinstellung
 sie gehören nicht zu den Berichtsdaten und werden daher nicht über Export/Import des Status
 übertragen; jede Person passt sie unabhängig an ihren eigenen Bildschirm an.
 
+Jedes der drei Panels oben in der Assembly-Seitenleiste (Eingabedaten, Bestückungsvariante,
+Produktionsplanung) klappt sich einzeln über den Pfeil ▾/▸ an seiner Überschrift ein — und die
+Checkbox **„Arbeitsmodus“** ganz oben in der Seitenleiste klappt **alle drei auf einmal** mit einem
+Klick ein (oder wieder aus), um schnell Platz für die Bauteilliste zu schaffen, statt drei einzelne
+Pfeile anzuklicken. Das ist nur eine bequeme Abkürzung — jedes Panel lässt sich danach weiterhin
+einzeln ausklappen, ohne den Zustand der Checkbox zu beeinflussen.
+
 **Sprachversion des Berichts:** Oben rechts im erzeugten Bericht befindet sich ein Umschalter
 **PL / DE** — er ändert die Sprache der gesamten Oberfläche (Beschriftungen, Schaltflächen,
 Tabellenüberschriften, Meldungen), ohne die Datei neu zu erzeugen. So kann dieselbe `report.html`

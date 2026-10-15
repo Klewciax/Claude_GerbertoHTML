@@ -110,6 +110,13 @@ def build_report_html(
       <div class="assembly-page">
       <div class="assembly-tab">
         <aside class="assembly-tab__sidebar">
+          <div class="sidebar-toolbar">
+            <label class="sidebar-toolbar__work-mode">
+              <input type="checkbox" id="workModeToggle" />
+              <span data-i18n="work_mode_label">Tryb pracy (zwiń dane wejściowe / wariant / produkcję)</span>
+            </label>
+          </div>
+
           <div class="upload-panel">
             <div class="upload-panel__header">
               <h2 data-i18n="input_data_heading">Dane wejściowe</h2>
