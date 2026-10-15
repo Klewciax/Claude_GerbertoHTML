@@ -2020,17 +2020,24 @@
   // ---------------------------------------------------------------------
   // "Tryb pracy" (work mode) -- one checkbox that collapses all three
   // panels above (Dane wejściowe / Wariant montażu / Planowanie produkcji)
-  // at once, instead of clicking each ▾/▸ individually. The variant
-  // picker is only touched when it's actually showing (more than one
-  // variant) -- otherwise there's nothing there to collapse.
+  // at once. Hides each panel *entirely* -- header bar included, not just
+  // its collapsible body -- since three collapsed header bars still eat
+  // the same vertical space a work-mode user is trying to reclaim. Each
+  // panel's own ▾/▸ collapse state is left untouched in the process (just
+  // not visible while hidden), so it comes back exactly as it was once
+  // work mode is turned back off. The variant picker is only touched when
+  // it's actually showing (more than one variant) -- otherwise there's
+  // nothing there to hide.
   // ---------------------------------------------------------------------
   var workModeToggle = document.getElementById('workModeToggle');
+  var uploadPanelEl = uploadPanelToggleBtn.closest('.upload-panel');
+  var productionPanelEl = productionPanelToggleBtn.closest('.production-panel');
   workModeToggle.addEventListener('change', function () {
-    var collapse = workModeToggle.checked;
-    setPanelCollapsed(uploadPanelBody, uploadPanelToggleBtn, collapse, 'block');
-    setPanelCollapsed(productionPanelBody, productionPanelToggleBtn, collapse, 'flex');
+    var hide = workModeToggle.checked;
+    uploadPanelEl.style.display = hide ? 'none' : '';
+    productionPanelEl.style.display = hide ? 'none' : '';
     if (variantNames.length > 1) {
-      setPanelCollapsed(variantSelect, variantPickerToggleBtn, collapse, '');
+      variantPicker.style.display = hide ? 'none' : '';
     }
   });
 

@@ -46,11 +46,11 @@ sie gehören nicht zu den Berichtsdaten und werden daher nicht über Export/Impo
 übertragen; jede Person passt sie unabhängig an ihren eigenen Bildschirm an.
 
 Jedes der drei Panels oben in der Assembly-Seitenleiste (Eingabedaten, Bestückungsvariante,
-Produktionsplanung) klappt sich einzeln über den Pfeil ▾/▸ an seiner Überschrift ein — und die
-Checkbox **„Arbeitsmodus“** ganz oben in der Seitenleiste klappt **alle drei auf einmal** mit einem
-Klick ein (oder wieder aus), um schnell Platz für die Bauteilliste zu schaffen, statt drei einzelne
-Pfeile anzuklicken. Das ist nur eine bequeme Abkürzung — jedes Panel lässt sich danach weiterhin
-einzeln ausklappen, ohne den Zustand der Checkbox zu beeinflussen.
+Produktionsplanung) klappt sich einzeln über den Pfeil ▾/▸ an seiner Überschrift ein. Die Checkbox
+**„Arbeitsmodus“** ganz oben in der Seitenleiste geht einen Schritt weiter und **blendet alle drei
+mit einem Klick komplett aus** (samt Kopfzeile, nicht nur deren Inhalt) — maximal Platz für die
+Bauteilliste. Beim Abwählen erscheinen alle drei wieder, jedes genau in dem Ein-/Ausgeklappt-Zustand,
+in dem es vor dem Aktivieren des Arbeitsmodus war.
 
 **Sprachversion des Berichts:** Oben rechts im erzeugten Bericht befindet sich ein Umschalter
 **PL / DE** — er ändert die Sprache der gesamten Oberfläche (Beschriftungen, Schaltflächen,

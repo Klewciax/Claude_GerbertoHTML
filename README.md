@@ -42,10 +42,11 @@ szerokość panelu, szerokości kolumn oraz wysokość/zwinięcie panelu braków
 osoba dostosowuje je do swojego ekranu niezależnie.
 
 Każdy z trzech panelów na górze sidebaru Assembly (Dane wejściowe, Wariant montażu, Planowanie
-produkcji) zwija się osobno strzałką ▾/▸ przy swoim nagłówku — a checkbox **„Tryb pracy”** na samej
-górze sidebaru zwija (albo rozwija) **wszystkie trzy naraz** jednym kliknięciem, żeby szybko zrobić
-miejsce na listę komponentów, zamiast klikać w trzy osobne strzałki. To tylko wygodny skrót — każdy
-panel można potem i tak dowolnie rozwinąć z osobna, bez wpływu na stan checkboxa.
+produkcji) zwija się osobno strzałką ▾/▸ przy swoim nagłówku. Checkbox **„Tryb pracy”** na samej
+górze sidebaru idzie o krok dalej i **całkowicie chowa wszystkie trzy naraz** (razem z paskami
+nagłówków, nie tylko ich zawartość) jednym kliknięciem — maksimum miejsca dla listy komponentów.
+Odznaczenie przywraca wszystkie trzy, każdy dokładnie w takim stanie zwinięcia/rozwinięcia, w jakim
+był przed włączeniem trybu pracy.
 
 **Wersja językowa raportu:** w prawym górnym rogu wygenerowanego raportu jest przełącznik **PL / DE** —
 zmienia język całego interfejsu (etykiety, przyciski, nagłówki tabel, komunikaty) bez ponownego
