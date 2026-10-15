@@ -186,7 +186,10 @@ sprawdza nagłówek kolumn** każdego kandydata, zamiast zgadywać po rozszerzen
   błędu, o ile nazwy plików na to pozwalają; w przeciwnym razie trzeba wskazać właściwy przez `--bom`.
   Więcej niż jeden plik pick-and-place różniący się tylko stroną (Top/Bottom) jest **łączony**
   (typowy przypadek oddzielnych raportów Top/Bottom z Altium); różniący się czymś innym (np. też
-  warianty) jest dopasowywany do wariantów BOM zamiast łączony w jedno.
+  warianty) jest dopasowywany do wariantów BOM zamiast łączony w jedno. **Jeden** plik pick-and-place
+  obok kilku wariantów BOM (typowe, gdy warianty różnią się tylko tym, które komponenty są
+  zamontowane, a nie samym fizycznym rozmieszczeniem) jest **współdzielony między wszystkimi
+  wariantami**, zamiast wymagać osobnego pliku na wariant.
 - Jednostki (mm/mil/cal) w pick-and-place są odczytywane z samej nazwy kolumny, gdy ta ją zawiera
   (np. `Center-X(mil)`) — `--unit` jest używany tylko jako domyślna wartość dla kolumn bez podanej
   jednostki w nazwie (np. samo `X`).

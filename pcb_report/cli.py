@@ -109,9 +109,18 @@ def _resolve_inputs(args: argparse.Namespace, project_dir: Path) -> Optional[Res
 
     pnp_paths = args.pnp
     if pnp_paths is None:
-        pnp_paths = [] if bom_variants else discovered.pnp_paths
+        # Not forced to [] when bom_variants is set: discover_project_files
+        # only routes a pick-and-place file into pnp_variants when there are
+        # *several* PnP candidates it could split one-per-variant (see
+        # _is_side_split there). A single PnP file alongside several BOM
+        # variants is a common, different case -- one physical placement
+        # shared by every population/fitting variant -- and lands in this
+        # flat pnp_paths instead. main() below falls back to it for any
+        # variant without its own more specific pnp_variants entry.
+        pnp_paths = discovered.pnp_paths
         if pnp_paths:
-            print(f"Auto-detected pick-and-place file(s): " + ", ".join(_rel(p) for p in pnp_paths))
+            shared_note = " (shared across all detected assembly variants)" if bom_variants else ""
+            print(f"Auto-detected pick-and-place file(s){shared_note}: " + ", ".join(_rel(p) for p in pnp_paths))
 
     if need_discovery:
         for warning in discovered.warnings:
@@ -210,6 +219,9 @@ def main(argv: list[str] | None = None) -> int:
     if resolved.bom_variants:
         paths_to_check += list(resolved.bom_variants.values())
         paths_to_check += [p for paths in resolved.pnp_variants.values() for p in paths]
+        # The shared fallback used below for any variant without its own
+        # paired file (see the variant-loading loop) -- needs checking too.
+        paths_to_check += resolved.pnp_paths
     else:
         paths_to_check += [resolved.bom_path, *resolved.pnp_paths]
     for path in paths_to_check:
@@ -220,8 +232,14 @@ def main(argv: list[str] | None = None) -> int:
     variants: dict[str, BomVariant] = {}
     if resolved.bom_variants:
         for name in sorted(resolved.bom_variants):
+            # A variant with its own paired pick-and-place file uses that;
+            # otherwise it falls back to resolved.pnp_paths -- a single
+            # (not per-variant-split) PnP file meant to apply to every
+            # variant, e.g. one physical placement shared across several
+            # BOM population/fitting variants.
+            pnp_paths_for_variant = resolved.pnp_variants.get(name) or resolved.pnp_paths
             variants[name] = _load_variant(
-                name, resolved.bom_variants[name], resolved.pnp_variants.get(name, []), args.unit
+                name, resolved.bom_variants[name], pnp_paths_for_variant, args.unit
             )
         default_variant = _pick_default_variant(list(variants))
     else:

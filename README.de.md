@@ -200,7 +200,10 @@ zu raten:
   `--bom` angegeben werden. Mehrere Pick-and-Place-Dateien, die sich nur durch die Seite (Top/Bottom)
   unterscheiden, werden **zusammengeführt** (typischer Fall getrennter Top-/Bottom-Berichte bei
   Altium); unterscheiden sie sich anders (z. B. ebenfalls Varianten), werden sie den BOM-Varianten
-  zugeordnet, statt zusammengeführt zu werden.
+  zugeordnet, statt zusammengeführt zu werden. **Eine einzige** Pick-and-Place-Datei neben mehreren
+  BOM-Varianten (typisch, wenn sich die Varianten nur darin unterscheiden, welche Bauteile bestückt
+  werden, nicht in der physischen Platzierung selbst) wird **von allen Varianten gemeinsam genutzt**,
+  statt eine eigene Datei pro Variante zu verlangen.
 - Einheiten (mm/mil/Zoll) in Pick-and-Place-Dateien werden aus dem Spaltennamen selbst gelesen, wenn
   dieser sie enthält (z. B. `Center-X(mil)`) — `--unit` dient nur als Standardwert für Spalten ohne
   angegebene Einheit im Namen (z. B. nur `X`).
